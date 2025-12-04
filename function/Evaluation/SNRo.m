@@ -35,8 +35,8 @@ x = x - mean(x);
 n = length(x);
 
 % 使用汉宁窗减小频谱泄漏（也可改为 boxcar 窗）
-w = 0.5 - 0.5*cos(2*pi*(0:n-1)'/(n-1));  % Hann window
-xw = x .* w;
+% w = 0.5 - 0.5*cos(2*pi*(0:n-1)'/(n-1));  % Hann window
+xw = x .* 1;
 
 % 计算 FFT
 x_fft = fft(xw);
