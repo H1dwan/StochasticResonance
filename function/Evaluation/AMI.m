@@ -6,32 +6,32 @@ function [ami, valid_curve] = AMI(x, fs, k)
 x = x(:);
 N = length(x);
 
-% 理论依据：SR中粒子在势阱间的跳变是大尺度的，阱内抖动是小尺度的。
-% 利用信号的统计分布（标准差）来区分这两种尺度。
-sigma = std(x);
-mu = mean(x);
+% % 理论依据：SR中粒子在势阱间的跳变是大尺度的，阱内抖动是小尺度的。
+% % 利用信号的统计分布（标准差）来区分这两种尺度。
+% sigma = std(x);
+% mu = mean(x);
 
-% 设定滞后阈值：均值上下 0.3 倍标准差 (经验值，适应性强)
-th_high = mu + 0.3 * sigma;
-th_low  = mu - 0.3 * sigma;
+% % 设定滞后阈值：均值上下 0.3 倍标准差 (经验值，适应性强)
+% th_high = mu + 0.3 * sigma;
+% th_low  = mu - 0.3 * sigma;
 
-s = zeros(N, 1);
-state = 1; % 初始状态
-if x(1) < mu, state = 0; end
+% s = zeros(N, 1);
+% state = 1; % 初始状态
+% if x(1) < mu, state = 0; end
 
-for i = 1:N
-    if x(i) > th_high
-        state = 1;
-    elseif x(i) < th_low
-        state = 0;
-    end
-    s(i) = state;
-end
+% for i = 1:N
+%     if x(i) > th_high
+%         state = 1;
+%     elseif x(i) < th_low
+%         state = 0;
+%     end
+%     s(i) = state;
+% end
 % 此时 s 是去除了毛刺的纯净二值序列
 
 % --- 1. AMI 计算核心参数 ---
 max_lag = min(round(k * fs), floor(N/2)); % 最大延迟取 k 秒
-% s = int8(x >= 0); % 状态符号化 (0 或 1)
+s = int8(x >= 0); % 状态符号化 (0 或 1)
 
 AMI_curve = zeros(max_lag, 1);
 
@@ -71,17 +71,16 @@ for tau = 1:max_lag
     AMI_curve(tau) = mi_val;
 end
 
-cutoff_idx = max(1, floor(length(AMI_curve) * 0.2));
+cutoff_idx = max(1, floor(length(AMI_curve) * 0.0));
 valid_curve = AMI_curve(cutoff_idx:end);
 
 if isempty(valid_curve)
     ami = 0;
 else
     % 纯AMI指标 = 曲线的标准差
-    % ami = std(valid_curve);
-    baseline = prctile(valid_curve, 20);
-    peak_val = max(valid_curve);
-    ami = peak_val - baseline;
-    % ami = mean(valid_curve);
+    ami = std(valid_curve);
+    % baseline = prctile(valid_curve, 20);
+    % peak_val = max(valid_curve);
+    % ami = peak_val - baseline;
 end
 end

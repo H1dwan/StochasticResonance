@@ -17,7 +17,7 @@ function U = HESUBSR_Potential(x, varargin)
 %   U - 计算得到的势能值，与输入x维度相同
 %
 % 示例:
-%   U = HESUBSR_Potential(0, 'alpha', 2, 'd', 0.5);
+%   U = HESUBSR_Potential(x, 'alpha', 2, 'd', 0.5);
 
 p = inputParser;
 addParameter(p, 'alpha', 1);

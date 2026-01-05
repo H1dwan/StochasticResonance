@@ -1,13 +1,15 @@
-function dxdt = CBSR_Dynamics(x, a, b)
-% CBSR_Dynamics: 经典双稳态系统动力学方程
-% dx/dt = a*x - b*x^3 + s_in
+function drift = CBSR_Dynamics(x, a, b)
+% CBSR_Dynamics: 经典双稳态系统的漂移函数
+% 
+% 语法:
+%   drift = CBSR_Dynamics(x, a, b)
 %
 % 输入参数:
 %   x: 当前状态
 %   a, b: 系统参数
+%
 % 输出参数:
-%   dxdt: 状态变化率
+%   drift: 漂移项
 
-dxdt = a*x - b*x^3;
-
+drift = a*x - b*x.^3;
 end

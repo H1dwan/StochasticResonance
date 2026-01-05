@@ -1,26 +1,25 @@
-function dxdt = PLBSR_Dynamics(x, a, b, c)
-% MUBSR_Dynamics: 多稳态双稳态系统动力学方程
-% 根据给定的分段势函数计算状态变化率
+function drift = PLBSR_Dynamics(x, U0, L0)
+% PLBSR_Dynamics: 分段线性双稳态系统的漂移函数
 %
 % 输入参数:
 %   x: 当前状态
-%   a, b: 结构参数
-%   c: 结构参数，控制开口大小
+%   a: 结构参数，控制开口大小（x轴截距）
+%   b: 结构参数，控制势阱位置xm
+%   c: 结构参数，控制势垒高度ΔU
 % 输出参数:
-%   dxdt: 状态变化率
+%   drift: 漂移项
 
 % 根据x所在区间选择不同的力函数
-if x < -b
-    % 左侧区域: dx/dt = -dU/dx = a/(4*b) * (x + c1)/(c1 - sqrt(a/b))
-    dxdt = c / (a - b);
-elseif x < 0
-    % 中间区域: dx/dt = -dU/dx = a*x - b*x^3
-    dxdt = c / b;
-elseif x < b
-    % 中间区域: dxdt = -dU/dx = -a/(4*b) * (x - c1)/(c1 - sqrt(a/b))
-    dxdt = -c / b;
-else
-    % 右侧区域: dx/dt = -dU/dx = 0
-    dxdt = -c / (a - b);
-end
+mask_left_outer = x < -L0;
+mask_left_inner = x >= -L0 & x < 0;
+mask_right_inner = x >= 0 & x < L0;
+mask_right_outer = x >= L0;
+
+drift = zeros(size(x));
+
+drift(mask_left_outer) = U0 / L0;
+drift(mask_left_inner) = -U0 / L0;
+drift(mask_right_inner) = U0 / L0;
+drift(mask_right_outer) = -U0 / L0;
+
 end

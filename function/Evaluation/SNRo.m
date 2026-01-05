@@ -30,7 +30,7 @@ if ~isnumeric(f0) || f0 <= 0 || f0 > fs/2
 end
 
 % 去均值，避免 DC 分量过大影响谱估计
-x = x - mean(x);
+% x = x - mean(x);
 
 n = length(x);
 
