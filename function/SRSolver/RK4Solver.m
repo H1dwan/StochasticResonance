@@ -23,10 +23,10 @@ s_out(1) = x0;
 
 for i = 1 : N-1
     % 计算四阶龙格-库塔法的四个中间值
-    k1 = h * dynamicsFunc(s_out(i), varargin{2:end}) + h * s_in(i);
-    k2 = h * dynamicsFunc(s_out(i) + 0.5*k1, varargin{2:end}) + h * s_in(i);
-    k3 = h * dynamicsFunc(s_out(i) + 0.5*k2, varargin{2:end}) + h * s_in(i+1);
-    k4 = h * dynamicsFunc(s_out(i) + k3, varargin{2:end}) + h * s_in(i+1);
+    k1 = h * dynamicsFunc(s_out(i)) + h * s_in(i);
+    k2 = h * dynamicsFunc(s_out(i) + 0.5*k1) + h * s_in(i);
+    k3 = h * dynamicsFunc(s_out(i) + 0.5*k2) + h * s_in(i+1);
+    k4 = h * dynamicsFunc(s_out(i) + k3) + h * s_in(i+1);
     
     % 更新状态
     s_out(i+1) = s_out(i) + (k1 + 2*k2 + 2*k3 + k4) / 6;

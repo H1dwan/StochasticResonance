@@ -1,7 +1,7 @@
 function [fg, pg, Convergence_curve] = PSO(SearchAgents_no, Max_iter, lb, ub, dim, fobj, maximize)
 %PSO 粒子群优化（可最小化或最大化）。
 %   [fg, pg, Convergence_curve] = PSO(SearchAgents_no, Max_iter, lb, ub, dim, fobj, maximize)
-%   在给定边界内搜索最优解，默认最小化目标函数 fobj，可选地求最大值。
+%   在给定边界内搜索最优解，默认最小化目标函数 fobj，可选地求极值。
 %
 % 输入参数
 %   SearchAgents_no - 粒子数量。
@@ -29,7 +29,7 @@ end
 % 初始化参数
 Alpha_score = zeros(SearchAgents_no, 1); % 代理历史最优 cost（已按求解方向变换）
 Alpha_pos = zeros(SearchAgents_no, dim); % 代理历史最优解的位置
-Positions = zeros(SearchAgents_no, dim); % 代理位置
+% Positions = zeros(SearchAgents_no, dim); % 代理位置
 fitness = zeros(SearchAgents_no, 1); % 代理适应度
 velocity = zeros(SearchAgents_no, dim); % 代理速度
 
@@ -39,10 +39,14 @@ pg = zeros(1, dim); % 全局最优解位置
 vmax = abs(ub - lb); % 速度最大值
 vmin = -vmax; % 速度最小值
 
+% rng(1);
+Positions = rand(SearchAgents_no, dim) ...
+    .* (ub - lb) + lb;
+
 % 初始化代理位置和速度
 for i = 1:SearchAgents_no
     for j = 1:dim
-        Positions(i,j) = lb(j) + rand() * (ub(j) - lb(j));
+        % Positions(i,j) = lb(j) + rand() * (ub(j) - lb(j));
         velocity(i,j) = vmin(j) + rand() * (vmax(j) - vmin(j));
     end
 end
@@ -71,7 +75,7 @@ while g < Max_iter
     % 更新代理位置和速度
     for i = 1:SearchAgents_no
         for j = 1:dim
-            velocity(i,j) = w * velocity(i,j) + 2 * rand() * (Alpha_pos(i,j) - Positions(i,j)) + 2 * rand() * (pg(1,j) - Positions(i,j));
+            velocity(i,j) = w * velocity(i,j) + 1.75 * rand() * (Alpha_pos(i,j) - Positions(i,j)) + 1.75 * rand() * (pg(1,j) - Positions(i,j));
             %             其中，velocity(i,j) 表示搜索点 $i$ 在第 $j$ 个维度上的速度，
             %             Alpha_pos(i,j) 表示搜索点 $i$ 在第 $j$ 个维度上的个体最优位置，
             %             pg(1,j) 表示全局最优位置在第 $j$ 个维度上的值，

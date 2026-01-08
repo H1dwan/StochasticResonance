@@ -15,6 +15,7 @@ function [best_fit, best_theta, history] = PGPSO(theta_min, theta_max, opts, eva
 %       .c1_min, .c1_max - 认知加速度系数范围。
 %       .c2_min, .c2_max - 社会加速度系数范围
 %       .display       - 是否显示迭代信息（布尔值）。
+%       .goal          - 优化方向，'max'（默认）或 'min'。
 %   evaluator   - 函数句柄，接受参数向量，返回目标适应度值、共振度和调试信息（可选）。
 %
 % 输出参数
@@ -28,7 +29,7 @@ function [best_fit, best_theta, history] = PGPSO(theta_min, theta_max, opts, eva
 if isfield(opts, 'rand_seed')
     rng(opts.rand_seed);
 end
-
+rng(1);  % 固定随机种子以便复现
 %% 2. 读取 PSO 与盲指标相关参数 ------------------------------------
 num_particles = opts.num_particles;
 max_iter      = opts.max_iter;
@@ -41,6 +42,14 @@ c2_min  = opts.c2_min;
 c2_max  = opts.c2_max;
 
 do_display   = opts.display;
+is_minimize  = isfield(opts, 'goal') && strcmpi(opts.goal, 'min');
+if is_minimize
+    better_than = @(new, old) new < old;
+    select_best = @min;
+else
+    better_than = @(new, old) new > old;
+    select_best = @max;
+end
 
 %% 3. 粒子初始化 -----------------------------------------------------
 theta_min = theta_min(:)';  % 确保为行向量
@@ -56,15 +65,23 @@ vel_particles   = zeros(num_particles, dim_theta);
 
 % 个体最优位置与适应度
 pbest_pos = theta_particles;
-pbest_fit = -inf(num_particles, 1);
+if is_minimize
+    pbest_fit = inf(num_particles, 1);
+    gbest_fit = inf;
+else
+    pbest_fit = -inf(num_particles, 1);
+    gbest_fit = -inf;
+end
 
 % 全局最优
 gbest_pos = theta_particles(1,:);
-gbest_fit = -inf;
 
 % 历史记录
 history.gbest_fit = zeros(max_iter, 1);
 history.mean_fit  = zeros(max_iter, 1);
+history.mean_eta    = zeros(max_iter, 1);   % 新增：群体平均 eta
+history.best_eta    = zeros(max_iter, 1);   % 新增：当前全局最优粒子的 eta
+history.corr_etaFit = zeros(max_iter, 1);   % 新增：eta 与 J 相关系数
 
 %% 4. 初始评估 -------------------------------------------------------
 fit_vals = zeros(num_particles, 1);
@@ -76,7 +93,7 @@ for idx = 1:num_particles
     pbest_fit(idx)   = fit_vals(idx);
     pbest_pos(idx,:) = theta_particles(idx,:);
     
-    if fit_vals(idx) > gbest_fit
+    if better_than(fit_vals(idx), gbest_fit)
         gbest_fit = fit_vals(idx);
         gbest_pos = theta_particles(idx,:);
     end
@@ -84,6 +101,17 @@ end
 
 history.gbest_fit(1) = gbest_fit;
 history.mean_fit(1)  = mean(fit_vals);
+history.mean_eta(1)  = mean(eta_vals);
+
+if num_particles >= 2
+    history.corr_etaFit(1) = corr(eta_vals, fit_vals);
+else
+    history.corr_etaFit(1) = NaN;
+end
+
+% 全局最优粒子的 eta
+[~, idx_best_init]   = select_best(fit_vals);
+history.best_eta(1)  = eta_vals(idx_best_init);
 
 if do_display
     fprintf('Iter %3d, best J = %.4f, mean J = %.4f\n', ...
@@ -121,15 +149,15 @@ for iter = 2:max_iter
         [fit_vals(idx), eta_vals(idx)] = evaluator(theta_particles(idx,:));
         
         % -------- 更新个体最优 -------------------------------------
-        if fit_vals(idx) > pbest_fit(idx)
+        if better_than(fit_vals(idx), pbest_fit(idx))
             pbest_fit(idx)   = fit_vals(idx);
             pbest_pos(idx,:) = theta_particles(idx,:);
         end
     end
     
     % -------- 更新全局最优 -----------------------------------------
-    [best_now, idx_best_now] = max(fit_vals);
-    if best_now > gbest_fit
+    [best_now, idx_best_now] = select_best(fit_vals);
+    if better_than(best_now, gbest_fit)
         gbest_fit = best_now;
         gbest_pos = theta_particles(idx_best_now,:);
     end
@@ -137,9 +165,21 @@ for iter = 2:max_iter
     history.gbest_fit(iter) = gbest_fit;
     history.mean_fit(iter)  = mean(fit_vals);
     
+    history.mean_eta(iter)  = mean(eta_vals);
+    
+    if num_particles >= 2
+        history.corr_etaFit(iter) = corr(eta_vals, fit_vals);
+    else
+        history.corr_etaFit(iter) = NaN;
+    end
+    
+    [~, idx_best_now]    = select_best(fit_vals);
+    history.best_eta(iter) = eta_vals(idx_best_now);
+    
     if do_display
-        fprintf('Iter %3d, best J = %.4f, mean J = %.4f\n', ...
-            iter, history.gbest_fit(iter), history.mean_fit(iter));
+        fprintf('Iter %3d, best J = %.4f, mean J = %.4f, mean eta = %.3f, corr(eta,J) = %.3f\n', ...
+            iter, history.gbest_fit(iter), history.mean_fit(iter), ...
+            history.mean_eta(iter), history.corr_etaFit(iter));
     end
 end
 
