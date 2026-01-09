@@ -14,6 +14,7 @@
 % =========================================================================
 
 clc; clear; close all;
+SetThesisDefaultStyle();
 
 %% 1. 势函数设置 =============================================
 % CBSR 势函数参数
@@ -28,34 +29,29 @@ a_ubsr = 1;
 b_ubsr = 1;
 drift_ubsr = @(x) UBSR_Dynamics(x, a_ubsr, b_ubsr);
 
-% % PLBSR 势函数参数
-% a_plbsr = 1.7;
-% b_plbsr = 1;
-% c_plbsr = 0.25;
-% drift_plbsr = @(x) PLBSR_Dynamics(x, a_plbsr, b_plbsr, c_plbsr);
-
 % HSUBSR 势函数参数
-shape_factor = 20; % shape factor k1/k2
+shape_factor = 2; % shape factor k1/k2
 [a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr] = CalibrateHSUBSR(xm, dU, shape_factor);
 drift_hsubsr = @(x) HSUBSR_Dynamics(x, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr);
 
 %% 2. 势函数及漂移项对比 =============================================
-SetThesisDefaultStyle();
-fig = CreateThesisFigure(16, 6);
+fig = CreateThesisFigure(14, 6);
 subplot(1,2,1);
-x = -4:0.01:4;
-plot(x, CBSR_Potential(x, 'a', a_cbsr, 'b', b_cbsr), '--'); hold on;
-plot(x, UBSR_Potential(x, 'a', a_ubsr, 'b', b_ubsr), ':'); 
-% plot(x, PLBSR_Potential(x, 'a', a_plbsr, 'b', b_plbsr, 'c', c_plbsr), ':');
-plot(x, HSUBSR_Potential(x, 'a', a_hsubsr, 'b', b_hsubsr, 'k1', k1_hsubsr, 'k2', k2_hsubsr)-...
-    HSUBSR_Potential(0, 'a', a_hsubsr, 'b', b_hsubsr, 'k1', k1_hsubsr, 'k2', k2_hsubsr), '-.');
+x = -3:0.01:3;
+plot(x, CBSR_Potential(x, a_cbsr, b_cbsr), '-', 'LineWidth', 2); hold on;
+plot(x, UBSR_Potential(x, a_ubsr, b_ubsr), '--', 'LineWidth', 2);
+plot(x, HSUBSR_Potential(x, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr)-...
+    HSUBSR_Potential(0, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr), '-.', 'LineWidth', 2);
 ylim([-dU, dU]);
+xlabel('$x$')
+ylabel('$U(x)$')
 legend('CBSR', 'UBSR', 'HSUBSR', 'Location', 'north');
 
 subplot(1,2,2);
-plot(x, drift_cbsr(x), '--'); hold on;
-plot(x, drift_ubsr(x), ':');
-plot(x, drift_hsubsr(x), '-.');
+plot(x, drift_cbsr(x), '-', 'LineWidth', 2); hold on;
+plot(x, drift_ubsr(x), '--', 'LineWidth', 2);
+plot(x, drift_hsubsr(x), '-.', 'LineWidth', 2);
 legend('CBSR', 'UBSR', 'HSUBSR', 'Location', 'northeast');
-
-% ExportThesisFigure(fig, 'Potential_Drift');
+ylim([-1, 1]);
+xlabel('$x$')
+ylabel('-$U^{\prime}(x)$')

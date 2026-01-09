@@ -1,4 +1,4 @@
-function y = CBSR_Potential(x, varargin)
+function y = CBSR_Potential(x, a, b)
 % CBSR_Potential 计算经典双稳态随机共振(CBSR)系统的势函数
 % 输入:
 %   x - 自变量（可以是标量或向量）
@@ -6,15 +6,13 @@ function y = CBSR_Potential(x, varargin)
 %   b - 参数，默认值 1
 % 输出: y - 对应的势函数值
 
-% 使用 inputParser 解析输入参数
-p = inputParser;
-addParameter(p, 'a', 1);
-addParameter(p, 'b', 1);
-parse(p, varargin{:});
+if nargin < 2
+    a = 1;
+end
 
-% 提取参数
-a = p.Results.a;
-b = p.Results.b;
+if nargin < 3
+    b = 1;
+end
 
 % 计算势函数值 U(x) = -a*x^2/2 + b*x^4/4
 y = -a * x.^2 / 2 + b * x.^4 / 4;

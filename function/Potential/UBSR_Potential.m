@@ -1,4 +1,4 @@
-function U = UBSR_Potential(x, varargin)
+function U = UBSR_Potential(x, a, b)
 % UBSR_Potential  分段构造的抗饱和双稳势函数（UBSR）
 % 来源：An adaptive unsaturated bistable stochastic resonance method and its application
 % in mechanical fault diagnosis
@@ -14,31 +14,24 @@ function U = UBSR_Potential(x, varargin)
 %
 % 输入参数:
 %   x - 位置坐标（标量或向量）
-%   varargin - 可选参数名称-值对，包括:
-%       'a' - 正实数参数，控制势阱深度和宽度
-%       'b' - 正实数参数，影响势函数的非线性程度
-%       'c' - 控制势阱中心位置，c = sqrt(2a/b)，默认自动计算
+%   a - 正实数参数，控制势阱深度和宽度
+%   b - 正实数参数，影响势函数的非线性程度
 %
 % 输出参数:
 %   U - 计算得到的势能值，与输入x维度相同
 %
 % 示例:
-%   U = UBSR_Potential(x, 'a', 1, 'b', 0.5);
+%   U = UBSR_Potential(x, 1, 1);
 
-p = inputParser;
-addParameter(p, 'a', 1);
-addParameter(p, 'b', 1);
-addParameter(p, 'c', []); % 默认为空，表示自动计算
-parse(p, varargin{:});
-
-a = p.Results.a;
-b = p.Results.b;
-c = p.Results.c;
-
-% 如果未指定c，则按公式计算
-if isempty(c)
-    c = sqrt(2*a/b);
+if nargin < 2
+    a = 1;
 end
+
+if nargin < 3
+    b = 1;
+end
+
+c = sqrt(2*a/b);
 
 % 计算边界点
 sqrt_ab = sqrt(a/b);
