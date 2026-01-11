@@ -12,7 +12,7 @@
 % Created: 2025-12-24
 % Last Modified: 2025-12-24
 %
-% Usage: How to use this script
+% Caution: Snr 不是随着 shape factor 的增大而单调变化的，是先增大后减小再增大的
 %
 % Input:
 %   input_description
@@ -21,6 +21,7 @@
 % =========================================================================
 
 clc; clear; close all;
+SetThesisDefaultStyle();
 
 %% 1. 实验设置 ============================================================
 % --- 锁定的几何目标 (控制变量) ---
@@ -28,10 +29,10 @@ xm = 1;
 dU = 1;
 
 % --- 待对比的 Shape Factors ---
-shape_list = [4, 6, 20, 50];
+shape_list = [1.5, 2, 6, 20];
 
 % --- 信号与系统参数 ---
-A = 0.05;                 % 弱信号幅值
+A = 0.05;                  % 弱信号幅值
 f0 = 0.01;                % 信号频率
 fs = 5;                   % 采样率
 T_sim = 2000;             % 仿真时长
@@ -40,14 +41,13 @@ t = (0:dt:T_sim-dt)';
 N = length(t);
 
 % --- 噪声扫描 ---
-D_list = 0.1:0.05:1.0;     % 关注低噪声到中噪声区
+D_list = 0.0:0.01:2;     % 关注低噪声到中噪声区
 n_repeat = 20;            % 重复次数取平均
 
 %% 2. 仿真主循环 ==========================================================
 s_clean = A * sin(2*pi*f0*t); % 纯净信号
 results = struct();
 
-SetThesisDefaultStyle();
 figure('Position', [100, 100, 1000, 400], 'Color', 'w');
 
 % --- 子图1: 势函数形状对比 ---
@@ -67,28 +67,36 @@ legend('Location', 'best');
 
 % --- 子图2：信噪比对比 ---
 subplot(1, 2, 2); hold on;
-
+linestyle_list = {'-', '--', '-.', ':'};
 for k = 1:length(shape_list)
     shape = results(k).shape;
     params = results(k).params;
-    SNR_out = zeros(size(D_list));
-    drift = @(x) HSUBSR_Dynamics(x, params(1), params(2), params(3), params(4));
-    fprintf('Simulating for shape factor = %d...\n', shape);
-    
-    for i = 1:length(D_list)
-        D = D_list(i);
-        snr_accum = 0;
-        
-        parfor n = 1:n_repeat
-            noise = sqrt(2*D*fs) * randn(N, 1);
-            x_out = RK4Solver2(drift, s_clean, noise, fs);
-            snr_accum = snr_accum + SNRo2(x_out, fs, f0);
-        end
-        
-        SNR_out(i) = snr_accum / n_repeat;
-    end
-    
-    plot(D_list, SNR_out, '-o', 'LineWidth', 2, 'DisplayName', sprintf('Shape=%d', shape));
+    [~, snr_adiabatic, ~] = HSUBSR_SNR(xm, dU, shape, f0, A, D_list);
+    plot(D_list, snr_adiabatic, linestyle_list{k}, 'LineWidth', 1.5, 'DisplayName', sprintf('Theory (shape=%d)', shape));
 end
+
+
+% for k = 1:length(shape_list)
+%     shape = results(k).shape;
+%     params = results(k).params;
+%     SNR_out = zeros(size(D_list));
+%     drift = @(x) HSUBSR_Dynamics(x, params(1), params(2), params(3), params(4));
+%     fprintf('Simulating for shape factor = %d...\n', shape);
+
+%     for i = 1:length(D_list)
+%         D = D_list(i);
+%         snr_accum = 0;
+
+%         parfor n = 1:n_repeat
+%             noise = sqrt(2*D*fs) * randn(N, 1);
+%             x_out = RK4Solver2(drift, s_clean, noise, fs);
+%             snr_accum = snr_accum + SNRo2(x_out, fs, f0);
+%         end
+
+%         SNR_out(i) = snr_accum / n_repeat;
+%     end
+
+%     plot(D_list, SNR_out, '-o', 'LineWidth', 2, 'DisplayName', sprintf('Shape=%d', shape));
+% end
 
 legend('Location', 'best');

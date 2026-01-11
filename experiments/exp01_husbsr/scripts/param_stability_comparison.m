@@ -11,7 +11,6 @@
 % =========================================================================
 
 clc; clear; close all;
-rng(42);   % 固定随机种子，保证可重复性
 
 %% 1. 全局仿真参数设置 ===============================================
 
@@ -169,7 +168,7 @@ parfor i_sample = 1:n_repeat_4B
     drift_hsubsr_pert = @(x) HSUBSR_Dynamics(x, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr);
     x_hsubsr_pert = RK4Solver2(drift_hsubsr_pert, clean_signal_robust, noise_seq_robust, fs_robust);
     x_hsubsr_stead = x_hsubsr_pert(idx0_robust:end);
-    snr_hsubsr_samples(i_sample) = SNRo(x_hsubsr_stead, fs_robust, f0);
+    snr_hsubsr_samples(i_sample) = SNRo2(x_hsubsr_stead, fs_robust, f0);
     
     % -------- UBSR 参数扰动 -------------------------------------
     a_ubsr = a_ubsr0 * (1 + delta_max * (2*rand - 1));
@@ -178,7 +177,7 @@ parfor i_sample = 1:n_repeat_4B
     drift_ubsr_pert = @(x) UBSR_Dynamics(x, a_ubsr, b_ubsr);
     x_ubsr_pert = RK4Solver2(drift_ubsr_pert, clean_signal_robust, noise_seq_robust, fs_robust);
     x_ubsr_stead = x_ubsr_pert(idx0_robust:end);
-    snr_ubsr_samples(i_sample) = SNRo(x_ubsr_stead, fs_robust, f0);
+    snr_ubsr_samples(i_sample) = SNRo2(x_ubsr_stead, fs_robust, f0);
     
     % -------- PLBSR 模型参数扰动 ----------------------------------
     u_plbsr = u_plbsr0 * (1 + delta_max * (2*rand - 1));
@@ -187,7 +186,7 @@ parfor i_sample = 1:n_repeat_4B
     drift_plbsr_pert = @(x) PLBSR_Dynamics(x, u_plbsr, l_plbsr);
     x_plbsr_pert = RK4Solver2(drift_plbsr_pert, clean_signal_robust, noise_seq_robust, fs_robust);
     x_plbsr_stead = x_plbsr_pert(idx0_robust:end);
-    snr_plbsr_samples(i_sample) = SNRo(x_plbsr_stead, fs_robust, f0);
+    snr_plbsr_samples(i_sample) = SNRo2(x_plbsr_stead, fs_robust, f0);
     
 end
 

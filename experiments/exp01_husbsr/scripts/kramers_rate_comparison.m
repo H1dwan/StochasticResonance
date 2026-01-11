@@ -14,15 +14,14 @@
 % =========================================================================
 
 clc; clear; close all;
-rng(42);  % 固定随机种子，保证可重复性
 
 %% 1. 全局仿真参数与模型参数 ==========================================
 
 % -------- 常量设置 ------------------------------------------------------
-T_TOTAL          = 2000;      % 总仿真时间 (s)，保证足够多的跃迁
+T_TOTAL          = 1000;      % 总仿真时间 (s)，保证足够多的跃迁
 FS               = 200;       % 采样率 (Hz)
-TRANSIENT_RATIO  = 0.2;       % 前 20% 作为瞬态丢弃
-N_REALIZATIONS   = 2;         % 每个 D 的重复次数，降低统计方差
+TRANSIENT_RATIO  = 0.1;       % 前 10% 作为瞬态丢弃
+N_REALIZATIONS   = 1;         % 每个 D 的重复次数，降低统计方差
 
 D_LIST           = 0.05:0.05:0.50;  % 噪声强度列表
 NUM_D            = numel(D_LIST);
@@ -32,7 +31,7 @@ xm = 1;
 dU = 0.25;
 
 % -------- HSUBSR 势函数参数 ------------------------------------------
-shape_factor = 6;
+shape_factor = 4;
 [a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr] = CalibrateHSUBSR(xm, dU, shape_factor);
 
 % -------- UBSR 势函数参数 --------------------------------------------
@@ -51,15 +50,15 @@ l_plbsr    = 1;
 [xm_ubsr, xb_ubsr, delta_u_ubsr, uxx_m_ubsr, uxx_b_ubsr] = ...
     ComputeKramersParamsUBSR(a_ubsr, b_ubsr);
 
-% [xm_pl, xb_pl, delta_u_pl, uxx_m_pl, uxx_b_pl] = ...
-%     ComputeKramersParamsPLBSR(u_plbsr, l_plbsr);
+[xm_pl, xb_pl, delta_u_pl, uxx_m_pl, uxx_b_pl] = ...
+    ComputeKramersParamsPLBSR(u_plbsr, l_plbsr);
 
 % Kramers 理论中的前因子 (与 D 无关)
 prefactor_hsubsr = sqrt(abs(uxx_b_hsubsr) * uxx_m_hsubsr) / (2 * pi);
 % prefactor_ubsr = sqrt(abs(uxx_b_ubsr) * uxx_m_ubsr) / (2 * pi);
 prefactor_ubsr = a_ubsr^2 / (4*b_ubsr*sqrt(a_ubsr/b_ubsr) * (sqrt(2*a_ubsr/b_ubsr) - sqrt(a_ubsr/b_ubsr)));
-% prefactor_plbsr = sqrt(abs(uxx_b_pl) * uxx_m_pl) / (2 * pi);
-prefactor_plbsr = u_plbsr^2 / (4*l_plbsr^2);
+prefactor_plbsr = sqrt(abs(uxx_b_pl) * uxx_m_pl) / (2 * pi);
+% prefactor_plbsr = u_plbsr^2 / (4*l_plbsr^2);
 
 % 定义阈值，用于区分“左阱 / 右阱”区域，避免在势垒附近误计多次跃迁
 x_thr_hsubsr = 0.5 * xm_hsubsr;
@@ -76,7 +75,8 @@ for i_d = 1:NUM_D
     d_val = D_LIST(i_d);
     rate_theory_hsubsr(i_d) = prefactor_hsubsr * exp(-delta_u_hsubsr / d_val);
     rate_theory_ubsr(i_d) = prefactor_ubsr * exp(-dU / d_val);
-    rate_theory_plbsr(i_d) = prefactor_plbsr * (1 / (d_val * sinh(u_plbsr/2/d_val)^2));
+    % rate_theory_plbsr(i_d) = prefactor_plbsr * (1 / (d_val * sinh(u_plbsr/2/d_val)^2));
+    rate_theory_plbsr(i_d) = prefactor_plbsr * exp(-u_plbsr / d_val);
 end
 
 %% 4. 基于 SDE 仿真的逃逸率估计 (不用 ZCR，显式数跃迁次数) =============
@@ -264,10 +264,7 @@ end
 function [x_m, x_b, delta_u, uxx_m, uxx_b] = ...
     ComputeKramersParamsUBSR(a, b)
 % ComputeKramersParamsUBSR  计算 UBSR 势函数的 Kramers 参数
-%
-% 注意:
-%   需要 MATLAB 路径中存在 UBSR_Potential.m
-U_fun    = @(x) UBSR_Potential(x, 'a', a, 'b', b);
+U_fun    = @(x) UBSR_Potential(x, a, b);
 threshold = sqrt(a / b);
 
 % 右侧势阱在 x > 0，约在 threshold 附近
@@ -281,24 +278,24 @@ uxx_m = (U_fun(x_m + h_fd) - 2 * U_fun(x_m) + U_fun(x_m - h_fd)) / h_fd^2;
 uxx_b = (U_fun(x_b + h_fd) - 2 * U_fun(x_b) + U_fun(x_b - h_fd)) / h_fd^2;
 end
 
-% function [x_m, x_b, delta_u, uxx_m, uxx_b] = ...
-%     ComputeKramersParamsPLBSR(a, b, c)
-% % ComputeKramersParamsPLBSR  计算 PLBSR 势函数的“有效” Kramers 参数
-% %
-% % 说明:
-% %   PLBSR 为分段线性势函数，在 x = 0, ±b2 处二阶导数不存在，
-% %   不严格满足 Kramers 理论的光滑假设。这里采用有限差分在
-% %   极值点附近给出一个“有效曲率”，用作对比。
+function [x_m, x_b, delta_u, uxx_m, uxx_b] = ...
+    ComputeKramersParamsPLBSR(u0, l0)
+% ComputeKramersParamsPLBSR  计算 PLBSR 势函数的“有效” Kramers 参数
+%
+% 说明:
+%   PLBSR 为分段线性势函数，在 x = 0, ±b2 处二阶导数不存在，
+%   不严格满足 Kramers 理论的光滑假设。这里采用有限差分在
+%   极值点附近给出一个“有效曲率”，用作对比。
 
-% U_fun    = @(x) PLBSR_Potential(x, 'a2', a, 'b2', b, 'c2', c);
-% % 右侧势阱理论上在 x = b
-% x_m = b;
-% x_b = 0.0;          % 中心势垒
+U_fun    = @(x) PLBSR_Potential(x, u0, l0);
+% 右侧势阱理论上在 x = b
+x_m = l0;
+x_b = 0.0;          % 中心势垒
 
-% delta_u = U_fun(x_b) - U_fun(x_m);
-% % 由于为分段线性，二阶导数的有限差分近似依赖于步长 h_fd，
-% % 这里只取一个相对“粗”的 h_fd 作为有效曲率估计。
-% h_fd  = 1e-2;
-% uxx_m = (U_fun(x_m + h_fd) - 2 * U_fun(x_m) + U_fun(x_m - h_fd)) / h_fd^2;
-% uxx_b = (U_fun(x_b + h_fd) - 2 * U_fun(x_b) + U_fun(x_b - h_fd)) / h_fd^2;
-% end
+delta_u = U_fun(x_b) - U_fun(x_m);
+% 由于为分段线性，二阶导数的有限差分近似依赖于步长 h_fd，
+% 这里只取一个相对“粗”的 h_fd 作为有效曲率估计。
+h_fd  = 1e-3;
+uxx_m = (U_fun(x_m + h_fd) - 2 * U_fun(x_m) + U_fun(x_m - h_fd)) / h_fd^2;
+uxx_b = (U_fun(x_b + h_fd) - 2 * U_fun(x_b) + U_fun(x_b - h_fd)) / h_fd^2;
+end
