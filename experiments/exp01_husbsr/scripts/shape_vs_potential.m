@@ -27,8 +27,8 @@ dU = a_cbsr^2 / (4*b_cbsr);
 
 %% 2. 对比 CBSR、UBSR 和 HSUBSR 势函数
 fig1 = CreateThesisFigure(); hold on;
-y_cbsr = CBSR_Potential(x_plot, 'a', a_cbsr, 'b', b_cbsr);
-y_ubsr = UBSR_Potential(x_plot, 'a', a_ubsr, 'b', b_ubsr);
+y_cbsr = CBSR_Potential(x_plot, a_cbsr, b_cbsr);
+y_ubsr = UBSR_Potential(x_plot, a_ubsr, b_ubsr);
 
 shape = 2;
 [a, b, k1, k2] = CalibrateHSUBSR(xm, dU, shape);
@@ -39,8 +39,8 @@ plot(x_plot, y_ubsr, '--', 'LineWidth', 2, 'DisplayName', 'UBSR Potential');
 plot(x_plot, y_hsubsr, '-.', 'LineWidth', 2, 'DisplayName', 'HSUBSR Potential ($S=2$)');
 % xlim([-3 3]);
 ylim([-0.25 0.25]);
-xlabel('x');
-ylabel('U(x)');
+xlabel('$x$');
+ylabel('$U(x)$');
 legend('Location', 'north');
 
 %% 3. 不同 shape factor 下的 HSUBSR 势函数对比
@@ -68,6 +68,6 @@ plot(x_plot, y_hsubsr, ':', 'LineWidth', 2, 'DisplayName', 'HSUBSR Potential ($S
 xlim([-3 3]);
 ylim([-0.25 0.25]);
 % yticks(-0.2:0.1:0.2);
-xlabel('x');
-ylabel('U(x)');
+xlabel('$x$');
+ylabel('$U(x)$');
 legend('Location', 'north');

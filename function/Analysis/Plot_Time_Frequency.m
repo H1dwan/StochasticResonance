@@ -27,19 +27,27 @@ P1 = P2(1:N/2+1);   % 截取单边谱
 P1(2:end-1) = 2*P1(2:end-1);    % 能量还原（除0Hz和奈奎斯特频率）
 
 % 绘制时域和频域图形
-figure
-tiledlayout(2,1);   %分区作图
-nexttile
-plot(t, x, 'k', "LineWidth", options.LineWidth);
-xlabel('time[s]')
-title('Time Domin')
-set(gca,'FontSize',14,'FontName','Times New Roman');
-% xlim([0 N])
+SetThesisDefaultStyle();
+CreateThesisFigure(8, 6);
+layout = tiledlayout(2,1);   %分区作图
+layout.Padding = 'compact';      % 紧凑内边距
+layout.TileSpacing = 'tight';    % 紧密的图块间距
 
 nexttile
-plot(f, P1, 'k', "LineWidth", options.LineWidth);
-xlabel('frequency[Hz]')
-title('Frequency Domin')
-set(gca,'FontSize',14,'FontName','Times New Roman');
+plot(t, x, 'LineWidth', options.LineWidth);
+% ylim([-20 20])
+xlabel('Time[s]')
+ylabel('Amplitude')
+% title('Time Domain')
+% set(gca,'FontSize',14,'FontName','Times New Roman');
+% xlim([0 N])
+
+nexttile;
+plot(f, P1, 'LineWidth', options.LineWidth);
+% xlim([0 0.3])
+xlabel('Frequency[Hz]')
+ylabel('Amplitude')
+% title('Frequency Domain')
+% set(gca,'FontSize',14,'FontName','Times New Roman');
 
 end
