@@ -37,14 +37,14 @@ transient_ratio = 0.1;                % 瞬态截断比例
 n_realizations  = 2;                  % 每个噪声强度下的平均次数 (增加以提高精度)
 
 % 噪声强度扫描范围
-D_list = 0.10:0.05:0.50;
+D_list = 0.0:0.01:1.50;
 num_D  = length(D_list);
 
 %% 2. 模型参数校准 (确保所有模型具有相同的 xm 和 dU) ===================
 fprintf('正在校准模型参数...\n');
 
 % (1) HSUBSR 参数校准
-shape_factor = 20; % 形状因子，控制势阱宽窄
+shape_factor = 100; % 形状因子，控制势阱宽窄
 [a_hs, b_hs, k1_hs, k2_hs] = CalibrateHSUBSR(xm_target, dU_target, shape_factor);
 
 % (2) UBSR 参数校准
@@ -74,9 +74,16 @@ x_thr = 0.2 * xm_target;
 
 fprintf('\n开始仿真 (Total D points: %d)...\n', num_D);
 
-[~, ~, rate_theo_hs] = HSUBSR_SNR(xm_target, dU_target, shape_factor, f, A, D_list);
-[~, ~, rate_theo_ub] = UBSR_SNR(a_ubsr, b_ubsr, f, A, D_list);
-[~, ~, rate_theo_pl] = PLBSR_SNR(u_pl, l_pl, f, A, D_list);
+[~, theo_snr_hs, rate_theo_hs] = HSUBSR_SNR(xm_target, dU_target, shape_factor, f, A, D_list);
+[~, theo_snr_ub, rate_theo_ub] = UBSR_SNR(a_ubsr, b_ubsr, f, A, D_list);
+[~, theo_snr_pl, rate_theo_pl] = PLBSR_SNR(u_pl, l_pl, f, A, D_list);
+
+figure;
+plot(D_list, theo_snr_hs, 'r-o', D_list, theo_snr_ub, 'b-s', D_list, theo_snr_pl, 'g-d', 'LineWidth', 1.5);
+legend({'HSUBSR', 'UBSR', 'PLBSR'}, 'Location', 'Best');
+xlabel('Noise Intensity D');
+ylabel('Theoretical SNR');
+title('Theoretical SNR vs Noise Intensity');
 
 for i = 1:num_D
     D = D_list(i);

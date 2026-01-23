@@ -28,9 +28,9 @@ P1(2:end-1) = 2*P1(2:end-1);    % 能量还原（除0Hz和奈奎斯特频率）
 
 % 绘制时域和频域图形
 SetThesisDefaultStyle();
-CreateThesisFigure(8, 6);
-layout = tiledlayout(2,1);   %分区作图
-layout.Padding = 'compact';      % 紧凑内边距
+CreateThesisFigure(8, 3);
+layout = tiledlayout(1,2);   %分区作图
+layout.Padding = 'tight';      % 紧凑内边距
 layout.TileSpacing = 'tight';    % 紧密的图块间距
 
 nexttile
@@ -41,10 +41,11 @@ ylabel('Amplitude')
 % title('Time Domain')
 % set(gca,'FontSize',14,'FontName','Times New Roman');
 % xlim([0 N])
+xticks(0:200:1000);
 
 nexttile;
 plot(f, P1, 'LineWidth', options.LineWidth);
-% xlim([0 0.3])
+xlim([0 0.3])
 xlabel('Frequency[Hz]')
 ylabel('Amplitude')
 % title('Frequency Domain')

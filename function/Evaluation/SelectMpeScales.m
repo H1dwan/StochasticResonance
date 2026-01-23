@@ -90,14 +90,25 @@ t_res_median = median(dur_sec);
 t_res_trim   = trimmean(dur_sec, 10); % 去掉10%极值后的均值
 
 % ---- 4) 由驻留时间给物理上限 + 由长度给统计上限 ----
-s_min = max(1, floor(t_res_trim * fs / 50));   % 绝热低频下建议至少从1秒尺度起步(10点)
-s_max_phy  = max(s_min + 10, floor(t_res_trim * fs / 10));
+s_min = max(1, floor(t_res_trim * fs / (6*m-1)));   % 绝热低频下建议至少从1秒尺度起步(10点)
+s_max_phy  = max(1, floor(t_res_trim * fs / (10)));
 
 C = 6; % 推荐：m=3时取6（平均每种序模式≈6次以上）
 s_max_stat = floor(n / (C * factorial(m)));
 
 s_max = min(s_max_phy, s_max_stat);
-scales = (s_min:5:s_max).';
+if s_min > s_max
+    s_min = 1;
+    s_max = 2;
+end
+scales = (s_min:4:s_max).';
+if length(scales) <= 2
+    scales = (s_min:2:s_max).';
+end
+
+if s_min == 1
+    scales = 1;
+end
 
 info = struct();
 info.mode_abs = mode_abs;

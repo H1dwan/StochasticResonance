@@ -34,7 +34,8 @@ snr_theory_freq = zeros(length(D_list), 1); % B. 频率修正理论 (Lorentzian 
 for i = 1:length(D_list)
     D_fixed = D_list(i);
     r_k(i) = (w0 * wb / (2*pi)) * exp(-dU / D_fixed);
-    snr_adiabatic(i) = (xm^2 * A^2 * r_k(i)) / (4 * D_fixed^2);
+    % snr_adiabatic(i) = (xm^2 * A^2 * r_k(i)) / (4 * D_fixed^2);
+    snr_adiabatic(i) = (pi/2) * (A*xm/D_fixed)^2 * r_k(i); % A. 绝热近似理论
     correction = 1 / (1 + (pi * f / r_k(i))^2); % 频率修正因子
     snr_theory_freq(i) = snr_adiabatic(i) * correction;
 end

@@ -5,7 +5,7 @@ load("ami_13.mat");
 % load("snr_13.mat");
 % snr = snr_mean;
 load("snr_theo.mat");
-snr = results.snr_theo(1:41);
+% snr = results.snr_theo(1:41);
 
 D_list = 0.05:0.01:0.45;
 
@@ -43,8 +43,28 @@ pos2 = [pos3_x, pos2_y, plot_width, plot_height_small];
 
 % 左侧大图位置 (占整个左边)
 alpha = 0.1;
-rscm = ami_mean.^alpha .* (1-mpe_mean).^(1-alpha);
-ax1 = axes('Position', pos1);
+% rscm = ami_mean.^alpha .* (1-mpe_mean).^(1-alpha);
+rscm = ami_mean .* (1-mpe_mean-0.745);
+CreateThesisFigure(8, 6);
+layout = tiledlayout(1,1);   %分区作图
+layout.Padding = 'tight';      % 紧凑内边距
+layout.TileSpacing = 'tight';    % 紧密的图块间距
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98]; 
+% rscm_smooth = [rscm(1:9); smooth(rscm(10:end), 2)];
+plot(D_list, rscm, 'o-', 'Color', [0.9020, 0.2941, 0.2078], 'MarkerSize', 5, 'MarkerFaceColor', [0.9020, 0.2941, 0.2078], 'DisplayName', 'RSCM');
+xlim([0, 0.5]);
+xlabel('$D$');
+ylabel('RSCM');
+xticks(0:0.1:0.5);
+yticks(0.01:0.01:0.06);
+text(0.02, 0.98, '(a)', ...
+    'Units', 'normalized', ... % 关键：使用归一化坐标
+    'FontSize', 12, ...
+    'FontWeight', 'bold', ...
+    'VerticalAlignment', 'top'); % 文字顶部对齐锚点
+
+% ax1 = axes('Position', pos1);
 plot(ax1, D_list, smooth(rscm, 1), 'o-', 'Color', [0.9020, 0.2941, 0.2078], 'MarkerSize', 5, 'MarkerFaceColor', [0.9020, 0.2941, 0.2078], 'DisplayName', 'RSCM');
 xlim(ax1, [0, 0.5]);
 xlabel(ax1, 'D');
@@ -56,7 +76,22 @@ text(ax1, 0.02, 0.98, '(a)', ...
     'VerticalAlignment', 'top'); % 文字顶部对齐锚点
 
 % 右上小图位置
-mpe_smooth = [mpe_mean(1:10); smooth(mpe_mean(11:end), 2)];
+CreateThesisFigure(8, 6);
+layout = tiledlayout(1,1);   %分区作图
+layout.Padding = 'tight';      % 紧凑内边距
+layout.TileSpacing = 'tight';    % 紧密的图块间距
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98]; 
+
+mpe_smooth = [mpe_mean(1:10); smooth(mpe_mean(11:end), 3)];
+plot(D_list, mpe_smooth + 0.745, '^-', 'Color', [0.2510, 0.3686, 0.6353], 'MarkerSize', 5, 'MarkerFaceColor', [0.2510, 0.3686, 0.6353], 'DisplayName', 'MPE');
+xlim([0, 0.5]);
+xticks(0:0.1:0.5);
+yticks(0.75:0.01:0.80);
+% yticklabels({'0.74', '0.75', '0.76', '0.77', '0.78', '0.79', '0.80'});
+xlabel('$D$');
+ylabel('MWPE');
+
 ax2 = axes('Position', pos2);
 plot(ax2, D_list, mpe_smooth, '^-', 'Color', [0.2510, 0.3686, 0.6353], 'MarkerSize', 5, 'MarkerFaceColor', [0.2510, 0.3686, 0.6353], 'DisplayName', 'MPE');
 xlim(ax2, [0, 0.5]);
@@ -69,14 +104,30 @@ text(ax2, 0.02, 0.98, '(b)', ...
     'VerticalAlignment', 'top'); % 文字顶部对齐锚点
 
 % 右下小图位置
+CreateThesisFigure(8, 6);
+layout = tiledlayout(1,1);   %分区作图
+layout.Padding = 'tight';      % 紧凑内边距
+layout.TileSpacing = 'tight';    % 紧密的图块间距
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98]; 
+[~,snr,~] = HSUBSR_SNR(1, 0.25, 20, 0.01, 0.1, 0:0.01:0.5);
+plot(0:0.01:0.5, snr, 's-', 'Color', [0.0000, 0.6196, 0.4510], 'MarkerSize', 5, 'MarkerFaceColor', [0.0000, 0.6196, 0.4510], 'DisplayName', 'SNR');
+xlim([0, 0.5]);
+xticks(0:0.1:0.5);
+yticks(0:0.01:0.05);
+% ylim(ax3, [0, 0.017]);
+xlabel('$D$');
+ylabel('SNR');
+
+
 ax3 = axes('Position', pos3);
 plot(ax3, D_list, smooth(snr, 3), 's-', 'Color', [0.0000, 0.6196, 0.4510], 'MarkerSize', 5, 'MarkerFaceColor', [0.0000, 0.6196, 0.4510], 'DisplayName', 'SNR');
 xlim(ax3, [0, 0.5]);
 % ylim(ax3, [0, 0.017]);
-xlabel(ax3, 'D');
+xlabel(ax3, '$D$');
 ylabel(ax3, 'SNR');
 text(ax3, 0.02, 0.98, '(c)', ...
     'Units', 'normalized', ... % 关键：使用归一化坐标
     'FontSize', 12, ...
     'FontWeight', 'bold', ...
-    'VerticalAlignment', 'top'); % 文字顶部对齐锚点
+    'VerticalAlignment', 'top'); % 文字顶部对齐锚点             

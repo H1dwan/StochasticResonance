@@ -16,7 +16,7 @@
 clc; clear; close all;
 
 %% 1. 基本仿真参数设置 ========================================
-rng(1);            % 固定随机种子，保证可重复
+% rng(1);            % 固定随机种子，保证可重复
 fs  = 5;           % 采样频率 Hz
 T   = 2000;        % 信号时长 s
 N   = fs * T;      % 样本点数
@@ -43,7 +43,7 @@ drift   = @(x) CBSR_Dynamics(x, a, b);
 fprintf('CBSR: xm = %.4f, DeltaU = %.4f\n', xm, dU);
 
 %% 2. 不同噪声强度 D 下的 SNR 曲线（A 固定） ===================
-D_list = 0.05:0.01:0.5;
+D_list = 0.05:0.01:0.45;
 snr_list = zeros(length(D_list), 1);
 metric1_curve = zeros(length(D_list), 1);
 metric2_curve = zeros(length(D_list), 1);
@@ -70,19 +70,20 @@ for iD = 1:length(D_list)
         snr_rep(k) = SNRo2(x_stead, fs, f0);
         
         % ---- 计算新的指标（PermEn 可能返回向量，这里取第一个量化值） ----
-        [~, metric1_tmp, info1] = PermEn(x_stead, 'm', 4, 'tau', 75);
-        [~, metric2_tmp, info2] = PermEn(x_stead, 'm', 4, 'tau', 100);
-        metric1_rep(k) = metric1_tmp(4);
-        metric2_rep(k) = metric2_tmp(4);
-        if isstruct(info1) && isfield(info1, 'f_star')
-            fprintf("f star: %.4f Hz\n", info1.f_star);
-        end
+        % [~, metric1_tmp, info1] = PermEn(x_stead, 'm', 4, 'tau', 75);
+        % [~, metric2_tmp, info2] = PermEn(x_stead, 'm', 4, 'tau', 100);
+        [metric1_rep(k), ~] = AMI2(x_stead, fs);
+        % metric1_rep(k) = metric1_tmp(4);
+        % metric2_rep(k) = metric2_tmp(4);
+        % if isstruct(info1) && isfield(info1, 'f_star')
+        %     fprintf("f star: %.4f Hz\n", info1.f_star);
+        % end
     end
     
     % 多次仿真求平均 SNR
     snr_list(iD) = mean(snr_rep);
     metric1_curve(iD) = mean(metric1_rep);
-    metric2_curve(iD) = mean(metric2_rep);
+    % metric2_curve(iD) = mean(metric2_rep);
 end
 
 %% 3. 绘制 SNR - D 曲线 ========================================
@@ -94,8 +95,20 @@ title(sprintf('SNR-D 曲线 (A = %.3f)', A0));
 
 figure('Position', [100, 100, 1200, 900], 'Color', 'white');
 plot(D_list, metric1_curve, 'ro-', 'LineWidth', 1.5, 'DisplayName', '75'); hold on;
-plot(D_list, metric2_curve, 'go-', 'LineWidth', 1.5, 'DisplayName', '100');
+% plot(D_list, metric2_curve, 'go-', 'LineWidth', 1.5, 'DisplayName', '100');
 xlabel('噪声强度 D');
 ylabel('归一化谱熵 SpecEntropy');
 title(sprintf('谱熵-D 曲线 (A = %.3f)', A0));
 legend('show');
+
+SetThesisDefaultStyle();
+CreateThesisFigure();
+tiledlayout(1 , 1 ,'Padding','compact','TileSpacing','compact');
+yyaxis left;
+plot(D_list, snr_list, 'o-', 'LineWidth', 2);
+ylabel('SNR')
+xlabel('$D$')
+yyaxis right;
+plot(D_list, metric1_curve, 's--', 'LineWidth', 2);
+ylabel('AMI')
+legend('SNR', 'AMI');

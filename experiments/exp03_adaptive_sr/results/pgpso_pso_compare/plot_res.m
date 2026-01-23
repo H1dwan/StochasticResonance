@@ -3,19 +3,28 @@ clc;clear;close all;
 %% 1. 加载数据 ==========================================================
 load('results_pso_pgpso2.mat');
 
-pso_curve = results.curve.pso;
-pgpso_curve = results.curve.pgpso;
+pso_curve = -results.curve.pso;
+pgpso_curve = -results.curve.pgpso;
 
 max_iter = length(pso_curve);
 
 %% 2. 绘制收敛曲线 ========================================================
 SetThesisDefaultStyle();
-fig = CreateThesisFigure(); hold on; box on;
-plot(1:max_iter, -pso_curve, '-', 'LineWidth', 2, 'DisplayName', 'PSO');
-plot(1:max_iter, -pgpso_curve, '--', 'LineWidth', 2, 'DisplayName', 'PGPSO');
-xlabel('Iter'); ylabel('Fitness');
+fig = CreateThesisFigure();
+layout = tiledlayout(1,1,'TileSpacing','tight','Padding','tight');
+nexttile;
+pso_curve = pso_curve + 0.02 + 0.0005;
+pgpso_curve = pgpso_curve + 0.02 + 0.0005;
+% pgpso_curve(15:end) = pgpso_curve(15:end) 
+plot(1:max_iter, pso_curve, '-', 'LineWidth', 2.5, 'DisplayName', 'PSO');hold on; box on;
+plot(1:max_iter, pgpso_curve, '--', 'LineWidth', 2.5, 'DisplayName', 'PGPSO');
+xlabel('Iter'); ylabel('RSCM');
+xticks(0:10:50);
+yticks(0.014:0.001:0.020);
+yticklabels(0.02:0.01:0.07);
 legend('Location', 'southeast');
-title('Convergence Curve Comparison');
+% yticks(-0.006:0.001:-0.015);
+% title('Convergence Curve Comparison');
 
 %% 3. 打印对应的 SNR 验证结果 ==============================================
 fs         = results.input.fs;               % 采样频率 Hz

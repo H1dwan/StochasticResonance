@@ -19,7 +19,7 @@ clc; clear; close all;
 
 %% 1. 公共仿真参数 =========================================================
 fs         = 5;               % 采样频率 Hz
-T          = 2000;            % 信号时长 s
+T          = 1000;            % 信号时长 s
 n_samples  = fs * T;
 t_vec      = (0:n_samples-1)' / fs;
 
@@ -28,7 +28,7 @@ f0         = 0.01;            % 真实信号频率（仅用于验证）
 clean_sig  = A0 * sin(2*pi*f0*t_vec);
 
 steady_ratio    = 0.1;        % 丢弃前 10% 作为瞬态A
-noise_intensity = 0.12;       % 基准噪声强度 D
+noise_intensity = 0.6;        % 基准噪声强度 D
 noise_seq = sqrt(2*noise_intensity*fs) * randn(n_samples,1);
 
 % HSUBSR 势结构参数搜索范围，使用 "物理映射搜索策略" (xm, dU, shape_factor)

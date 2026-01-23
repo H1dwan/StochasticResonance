@@ -9,12 +9,12 @@ function SetThesisDefaultStyle()
 set(0, 'DefaultFigureColor',       'w');      % 图背景白色
 set(0, 'DefaultAxesFontName',      'Arial');  % 坐标轴字体
 set(0, 'DefaultTextFontName',      'Arial');  % 文本/标题字体
-set(0, 'DefaultAxesFontSize',      10);       % 坐标轴刻度字号
+set(0, 'DefaultAxesFontSize',      12);       % 坐标轴刻度字号
 set(0, 'DefaultAxesLabelFontSizeMultiplier', 1.2);
 set(0, 'DefaultAxesTitleFontSizeMultiplier', 1.2);
-set(0, 'DefaultTextFontSize',      12);       % 默认文本字号
+set(0, 'DefaultTextFontSize',      14);       % 默认文本字号
 set(0, 'DefaultAxesLineWidth',     1);        % 坐标轴线宽
-set(0, 'DefaultLineLineWidth',     1.2);        % 曲线线宽
+set(0, 'DefaultLineLineWidth',     1.5);      % 曲线线宽
 set(0, 'DefaultLineMarkerSize',    5);        % 标记大小
 
 % 坐标轴习惯设置
