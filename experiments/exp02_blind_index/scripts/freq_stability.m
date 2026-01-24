@@ -22,10 +22,10 @@ num_samples = fs * t_total;     % 样本点数
 time_axis   = (0:num_samples-1)' / fs;
 
 % 输入信号参数（弱周期信号）
-% f0      = 0.01;               % 目标信号频率 (Hz)，满足 f0 << fs
-A0      = 0.05;               % 信号幅值（可根据需要调整）
-% f_list = [0.005, 0.010, 0.015];
-f_list = [0.005];  % 待测试频率列表
+% f0      = 0.01;            % 目标信号频率 (Hz)，满足 f0 << fs
+A0      = 0.1;               % 信号幅值（可根据需要调整）
+f_list = [0.005, 0.010, 0.015];
+% f_list = [0.005];  % 待测试频率列表
 num_freq = length(f_list);
 
 % 噪声强度 D 扫描范围
@@ -60,7 +60,7 @@ results = struct('f0', cell(num_freq, 1), ...
 %% 2. 定义双稳系统漂移函数 ==========================================
 % drift_func = @(x) CBSR_Dynamics(x, 1, 1);
 % drift_func = @(x) UBSR_Dynamics(x, 1, 1);
-[a, b, k1, k2] = CalibrateHSUBSR(1, 0.25, 50);
+[a, b, k1, k2] = CalibrateHSUBSR(1, 0.25, 1.01);
 drift_func = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
 
 %% 3. 频率稳定性验证 ==========================
@@ -92,12 +92,12 @@ for idx_f = 1 : num_freq
             snr_rep(k) = SNRo2(x_stead, fs, f0);
             [ami_rep(k), ~] = AMI2(x_stead, fs);
             
-            [scales, ~] = SelectMpeScales(x_stead, fs, 3);
-            [~, mpnorm, ~, ~] = MultiScalePermEn(x_stead, scales);
-            mpe_val = std(mpnorm(~isnan(mpnorm)));
+            out = AdaptiveScalesACF(x_stead, fs);
+            [~, mpnorm, ~, ~] = MultiScalePermEn(x_stead, out.S);
+            mpe_val = mean(mpnorm(~isnan(mpnorm)));
             mpe_rep(k) = mpe_val;
             
-            rscm_rep(k) = ami_rep(k)^0.5 * (1 - mpe_val)^0.5;
+            rscm_rep(k) = ami_rep(k)* (1 - mpe_val);
         end
         
         snr_mean(idx_D)  = mean(snr_rep);

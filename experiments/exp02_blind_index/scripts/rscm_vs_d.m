@@ -23,7 +23,7 @@ time_axis   = (0:num_samples-1)' / fs;
 
 % 输入信号参数（弱周期信号）
 f0      = 0.01;               % 目标信号频率 (Hz)，满足 f0 << fs
-A0      = 0.05;               % 信号幅值
+A0      = 0.1;                % 信号幅值
 clean_signal = A0 * sin(2*pi*f0*time_axis);
 
 % 噪声强度 D 扫描范围
@@ -31,7 +31,7 @@ D_list   = 0.05:0.01:0.45;
 num_D    = length(D_list);
 
 % 每个 D 重复次数（用于统计平均）
-n_repeat = 10;
+n_repeat = 100;
 
 % 预分配结果存储
 snr_mean    = zeros(num_D, 1);
@@ -41,7 +41,7 @@ ami_mean    = zeros(num_D, 1);
 %% 2. 定义双稳系统漂移函数 ==========================================
 % drift_func = @(x) CBSR_Dynamics(x, 1, 1);
 % drift_func = @(x) UBSR_Dynamics(x, 1, 1);
-[a, b, k1, k2] = CalibrateHSUBSR(0.9, 3.6, 35);
+[a, b, k1, k2] = CalibrateHSUBSR(1, 0.25, 1.01);
 drift_func = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
 
 %% 3. 扫描噪声强度 D，统计 SNR 与 RSCM 指标 ==========================
@@ -69,14 +69,14 @@ for idx_D = 1:num_D
         
         % ---- 计算改进 AMI 指标（驻留时间自适应裁剪） -------
         [ami_rep(k), ~] = AMI2(x_stead, fs);
-
+        
         % ---- 计算多尺度排列熵 MPE 指标 -----------------------------
-        [scales, info] = SelectMpeScales(x_stead, fs, 3);
-        [~, mpnorm, ~, ~] = MultiScalePermEn(x_stead, scales);
-        mpe_rep(k) = std(mpnorm(~isnan(mpnorm)));  % 用 MPE 标准差作为指标    
+        out = AdaptiveScalesACF(x_stead, fs);
+        [~, mpnorm, ~, ~] = MultiScalePermEn(x_stead, out.S);
+        mpe_rep(k) = mean(mpnorm(~isnan(mpnorm)));  % 用 MPE 标准差作为指标
     end
-    
-    % ---- 对重复试验求平均与标准差 -----------------------------------
+    fprintf('  D index %d/%d 完成\n', idx_D, num_D);
+    % ---- 对重复试验求平均 -----------------------------------
     snr_mean(idx_D)     = mean(snr_rep);
     mpe_mean(idx_D)     = mean(mpe_rep);
     ami_mean(idx_D)     = mean(ami_rep);
@@ -131,11 +131,11 @@ xlabel('D');
 ylabel('1-MPE');
 
 subplot(2, 2, 4);
-plot(D_list, smooth((1 - mpe_mean).*ami_mean, 1), 'd-.', 'DisplayName', 'RSCM'); 
+plot(D_list, smooth((1 - mpe_mean).*ami_mean, 1), 'd-.', 'DisplayName', 'RSCM');
 xlabel('D');
 ylabel('RSCM');
 
-results.snr = snr_mean;
-results.ami = ami_mean;
-results.mpe = mpe_mean;
-results.D_list = D_list;
+% results.snr = snr_mean;
+% results.ami = ami_mean;
+% results.mpe = mpe_mean;
+% results.D_list = D_list;

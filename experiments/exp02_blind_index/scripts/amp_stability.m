@@ -22,10 +22,10 @@ num_samples = fs * t_total;     % 样本点数
 time_axis   = (0:num_samples-1)' / fs;
 
 % 输入信号参数（弱周期信号）
-f0      = 0.01;               % 目标信号频率 (Hz)，满足 f0 << fs
+f0      = 0.01;                 % 目标信号频率 (Hz)，满足 f0 << fs
 % A0      = 0.05;               % 信号幅值（可根据需要调整）
-% amp_list = [0.05, 0.10, 0.15];
-amp_list = [0.15];  % 待测试频率列表
+amp_list = [0.05, 0.10, 0.15];
+% amp_list = [0.15];  % 待测试幅值列表
 num_amp = length(amp_list);
 
 % 噪声强度 D 扫描范围
@@ -33,7 +33,7 @@ D_list   = 0.05:0.01:0.45;
 num_D    = length(D_list);
 
 % 每个 D 重复次数（用于统计平均）
-n_repeat = 12;
+n_repeat = 10;
 
 % 结果存储
 results = struct('A0', cell(num_amp, 1), ...
@@ -59,7 +59,7 @@ results = struct('A0', cell(num_amp, 1), ...
 %% 2. 定义双稳系统漂移函数 ==========================================
 % drift_func = @(x) CBSR_Dynamics(x, 1, 1);
 % drift_func = @(x) UBSR_Dynamics(x, 1, 1);
-[a, b, k1, k2] = CalibrateHSUBSR(1, 0.25, 50);
+[a, b, k1, k2] = CalibrateHSUBSR(1, 0.25, 1.01);
 drift_func = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
 
 %% 3. 频率稳定性验证 ==========================
@@ -91,12 +91,12 @@ for idx_a = 1 : num_amp
             snr_rep(k) = SNRo2(x_stead, fs, f0);
             [ami_rep(k), ~] = AMI2(x_stead, fs);
             
-            [scales, ~] = SelectMpeScales(x_stead, fs, 3);
-            [~, mpnorm, ~, ~] = MultiScalePermEn(x_stead, scales);
-            mpe_val = std(mpnorm(~isnan(mpnorm)));
+            out = AdaptiveScalesACF(x_stead, fs);
+            [~, mpnorm, ~, ~] = MultiScalePermEn(x_stead, out.S);
+            mpe_val = mean(mpnorm(~isnan(mpnorm)));
             mpe_rep(k) = mpe_val;
             
-            rscm_rep(k) = ami_rep(k)^0.5 * (1 - mpe_val)^0.5;
+            rscm_rep(k) = ami_rep(k)* (1 - mpe_val);
         end
         
         snr_mean(idx_D)  = mean(snr_rep);
@@ -161,16 +161,16 @@ for idx_a = 1:num_amp
     subplot(2, 2, idx_a);
     D_axis = results(idx_a).D_axis;
     
-    plot(D_axis, smooth(results(idx_a).ami_mean, 3), 'o-', 'DisplayName', 'SNR'); hold on;
-    % plot(D_axis, smooth(results(idx_a).ami_mean, 1), 'd-.', 'DisplayName', 'AMI');
-    % plot(D_axis, smooth(1 - results(idx_a).mpe_mean, 1), 's--', 'DisplayName', '1-MPE');
-    % plot(D_axis, smooth(results(idx_a).rscm_mean, 1), '^-', 'DisplayName', 'RSCM');
+    plot(D_axis, smooth(results(idx_a).snr_mean, 1), 'o-', 'DisplayName', 'SNR'); hold on;
+    plot(D_axis, smooth(results(idx_a).ami_mean, 1), 'd-.', 'DisplayName', 'AMI');
+    plot(D_axis, smooth(1 - results(idx_a).mpe_mean, 1), 's--', 'DisplayName', '1-MPE');
+    plot(D_axis, smooth(results(idx_a).rscm_mean, 1), '^-', 'DisplayName', 'RSCM');
     
-    % plot(results(idx_a).D_peak_snr, results(idx_a).snr_mean(results(idx_a).idx_peak_snr), 'ko', 'MarkerFaceColor', 'k');
-    % plot(results(idx_a).D_peak_rscm, results(idx_a).rscm_mean(results(idx_a).idx_peak_rscm), 'kp', 'MarkerFaceColor', 'y');
+    plot(results(idx_a).D_peak_snr, results(idx_a).snr_mean(results(idx_a).idx_peak_snr), 'ko', 'MarkerFaceColor', 'k');
+    plot(results(idx_a).D_peak_rscm, results(idx_a).rscm_mean(results(idx_a).idx_peak_rscm), 'kp', 'MarkerFaceColor', 'y');
     
-    % title(sprintf('A0 = %.3f, corr = %.3f', results(idx_a).A0, results(idx_a).rho_rscm));
-    % xlabel('D');
+    title(sprintf('A0 = %.3f, corr = %.3f', results(idx_a).A0, results(idx_a).rho_rscm));
+    xlabel('D');
     ylabel('Metric value');
     legend('Location', 'best');
 end
