@@ -15,7 +15,7 @@
 %   output_description
 % =========================================================================
 
-clc; clear; close all;
+clc; close all;
 
 %% 1. 公共仿真参数 =========================================================
 fs         = 5;               % 采样频率 Hz
@@ -25,21 +25,21 @@ t_vec      = (0:n_samples-1)' / fs;
 
 A0         = 0.1;             % 弱信号幅值
 f0         = 0.01;            % 真实信号频率（仅用于验证）
-clean_sig  = A0 * sin(2*pi*f0*t_vec);
+% clean_sig  = A0 * sin(2*pi*f0*t_vec);
 
 steady_ratio    = 0.1;        % 丢弃前 10% 作为瞬态A
 noise_intensity = 0.6;        % 基准噪声强度 D
-noise_seq = sqrt(2*noise_intensity*fs) * randn(n_samples,1);
+% noise_seq = sqrt(2*noise_intensity*fs) * randn(n_samples,1);
 
 % HSUBSR 势结构参数搜索范围，使用 "物理映射搜索策略" (xm, dU, shape_factor)
 input_rms = std(clean_sig+noise_seq);
-theta_min = [0.5*input_rms, 0.15, 1.1];  % [xm, dU, shape_factor]
-theta_max = [2.0*input_rms, 0.5, 50.0];
+theta_min = [0.5, 0.15, 1.001];  % [xm, dU, shape_factor]
+theta_max = [2.0, 1.0, 1.9];
 
 %% 2. PGPSO / 标准 PSO 公共参数 =============================================
 bpg_opts.num_particles = 20;
 bpg_opts.max_iter      = 50;
-bpg_opts.goal          = 'min';          % 优化目标：'min' 或 'max'
+bpg_opts.goal          = 'max';          % 优化目标：'min' 或 'max'
 
 % PSO 参数范围
 bpg_opts.w_min   = 0.3;
@@ -64,7 +64,7 @@ evaluator = @(x) RSCMEvaluator(x, clean_sig, noise_seq, fs, bpg_opts);
 
 % --- 标准 PSO ---
 [fit_std, theta_std, curve] = PSO(bpg_opts.num_particles, bpg_opts.max_iter, theta_min, theta_max, ...
-    3, evaluator);
+    3, evaluator, true);
 
 % --- PGPSO ---
 [fit_bpg, theta_bpg, hist_bpg] = PGPSO( ...

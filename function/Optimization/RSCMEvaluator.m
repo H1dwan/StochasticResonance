@@ -38,12 +38,13 @@ x_steady = x_out(steady_start+1:end);
 [J_occ, J_ami, eta] = LocalStructureFeatures(x_steady, fs, opts.kappa_eta);
 
 % 4. 多尺度排列熵：取归一化序列标准差的反向指标
-[scales, ~] = SelectMpeScales(x_steady, fs, 4);
-[~, mpnorm, ~, ~] = MultiScalePermEn(x_steady, scales);
+% [scales, ~] = SelectMpeScales(x_steady, fs, 4);
+out = AdaptiveScalesACF(x_steady, fs);
+[~, mpnorm, ~, ~] = MultiScalePermEn(x_steady, out.S);
 % mwpe_index = std(mpnorm(~isnan(mpnorm)));
 mwpe_index = mean(mpnorm);
 if isnan(mwpe_index)
-    J_mpe = 0;
+    J_mpe = 1;
 else
     J_mpe = max(0, min(1, 1 - mwpe_index));
 end
@@ -51,7 +52,7 @@ end
 % 5. 适应度：AMI^w_ami * MPE^w_mpe，均为 [0,1] 内的非负指标
 % fitness = J_ami.^opts.w_ami * J_mpe.^opts.w_mpe;
 % fitness = (1-J_ami).^opts.w_ami * mwpe_index.^opts.w_mpe;
-fitness = -J_ami * J_mpe;  % 取负号以实现最大化
+fitness = J_ami * J_mpe;  % 取负号以实现最大化
 
 % 调试信息（可选输出）
 if nargout >= 3
@@ -59,7 +60,7 @@ if nargout >= 3
     debug.J_ami = J_ami;
     debug.J_mpe = J_mpe;
     debug.eta   = eta;
-    debug.scales = scales;
+    debug.scales = out.S;
 end
 
 end

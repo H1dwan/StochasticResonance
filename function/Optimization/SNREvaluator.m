@@ -29,7 +29,7 @@ x_steady = x_out(steady_start+1:end);
 % 3. 计算输出信号的 SNR 作为适应度指标
 snr_val = SNRo2(x_steady, fs, f0);
 if isinf(snr_val)
-    snr_val = 0; % 对于无穷大的 SNR，设置为 0 以避免优化问题
+    snr_val = -100; % 对于无穷大的 SNR，设置为 -100 以避免优化问题
 end
 
 fitness = -snr_val;

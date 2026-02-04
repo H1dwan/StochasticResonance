@@ -1,96 +1,103 @@
-clc;clear;
+clc; clear; close all;
 %% 1. 数据导入 ===============================================
+load('res_amp_stability.mat');
+
+snr_005 = results(1).snr_mean;
+snr_010 = results(2).snr_mean;
+snr_015 = results(3).snr_mean;
+
+mpe_005 = results(1).mpe_mean;
+mpe_010 = results(2).mpe_mean;
+mpe_015 = results(3).mpe_mean;
+
+ami_005 = results(1).ami_mean;
+ami_010 = results(2).ami_mean;
+ami_015 = results(3).ami_mean;
+
+rscm_005 = results(1).rscm_mean;
+rscm_010 = results(2).rscm_mean;
+rscm_015 = results(3).rscm_mean;
+
 D_list = 0.05:0.01:0.45;
 
-results_015 = load('results_015amp.mat');
-% snr_015 = results_015.results.snr_mean;
-[snr_015, ~, ~] = HSUBSR_SNR(1, 0.25, 20, 0.010, 0.15, 0:0.01:0.5);
-mpe_015 = results_015.results.mpe_mean;
-ami_015 = results_015.results.ami_mean;
-
-results_010 = load('results_010amp.mat');
-% snr_010 = results_010.results.snr_mean;
-[snr_010, ~, ~] = HSUBSR_SNR(1, 0.25, 20, 0.010, 0.10, 0:0.01:0.5);
-mpe_010 = results_010.results.mpe_mean;
-ami_010 = results_010.results.ami_mean;
-
-reuslts_005 = load('results_005amp.mat');
-% snr_005 = reuslts_005.results.snr_mean;
-[snr_005, ~, ~] = HSUBSR_SNR(1, 0.25, 20, 0.010, 0.05, 0:0.01:0.5);
-mpe_005 = reuslts_005.results.mpe_mean;
-ami_005 = reuslts_005.results.ami_mean;
-
+SetThesisDefaultStyle();
+color_order = get(0, 'DefaultAxesColorOrder');
 
 %% SNR 绘制 ==============================================
-CreateThesisFigure(8, 6);
-layout = tiledlayout(1,1);   %分区作图
-layout.Padding = 'tight';      % 紧凑内边距
-layout.TileSpacing = 'tight';    % 紧密的图块间距
-ax = nexttile;
-ax.Position = [0.01 0.01 0.98 0.98]; 
 
-plot(0:0.01:0.5, smooth(snr_015, 1), 's-', 'Color', [0.0000, 0.6196, 0.4510], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.0000, 0.6196, 0.4510], 'DisplayName', 'A=0.15'); hold on;
-plot(0:0.01:0.5, smooth(snr_010, 1), '^-', 'Color', [0.2510, 0.3686, 0.6353], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.2510, 0.3686, 0.6353], 'DisplayName', 'A=0.10');
-plot(0:0.01:0.5, smooth(snr_005, 1), 'o-', 'Color', [0.9020, 0.2941, 0.2078], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.9020, 0.2941, 0.2078], 'DisplayName', 'A=0.05');
-xlim([0, 0.5]);
-xticks(0:0.1:0.5);
-xlabel('$D$');
+CreateThesisFigure();
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98];
+
+plot(D_list(3:end), snr_005(3:end), '-o', 'DisplayName', '$A=0.05$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(1, :));
+hold on;
+plot(D_list(3:end), snr_010(3:end), '-s', 'DisplayName', '$A=0.10$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(2, :));
+plot(D_list(3:end), snr_015(3:end), '-^', 'DisplayName', '$A=0.15$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(3, :));
 ylabel('SNR');
+xlabel('$D$');
+
+xlim([0.00, 0.50]);
+xticks(0:0.1:0.50);
 legend('Location', 'northeast', 'FontSize', 12);
 
-%% mwpe 绘制 ==============================================
-CreateThesisFigure(8, 6);
-layout = tiledlayout(1,1);   %分区作图
-layout.Padding = 'tight';      % 紧凑内边距
-layout.TileSpacing = 'tight';    % 紧密的图块间距
+%% MWPE 绘制 ==============================================
+
+CreateThesisFigure();
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+
 ax = nexttile;
-ax.Position = [0.01 0.01 0.98 0.98]; 
+ax.Position = [0.01 0.01 0.98 0.98];
 
-mpe_015_smooth = [mpe_015(1:12); smooth(mpe_015(13:end), 4)];
-plot(D_list, mpe_015_smooth + 0.735, 's-', 'Color', [0.0000, 0.6196, 0.4510], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.0000, 0.6196, 0.4510], 'DisplayName', 'A=0.15'); hold on;
-
-mpe_010_smooth = [mpe_010(1:11); smooth(mpe_010(12:end), 4)];
-plot(D_list, mpe_010_smooth + 0.745, '^-', 'Color', [0.2510, 0.3686, 0.6353], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.2510, 0.3686, 0.6353], 'DisplayName', 'A=0.10');
-
-mpe_005_smooth = [mpe_005(1:11); smooth(mpe_005(12:end), 4)];
-plot(D_list, mpe_005_smooth + 0.750, 'o-', 'Color', [0.9020, 0.2941, 0.2078], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.9020, 0.2941, 0.2078], 'DisplayName', 'A=0.05');
-
-xlim([0, 0.5]);
-xticks(0:0.1:0.5);
+plot(D_list(3:end), mpe_005(3:end), '-o', 'DisplayName', '$A=0.05$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(1, :));
+hold on;
+plot(D_list(3:end), mpe_010(3:end), '-s', 'DisplayName', '$A=0.10$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(2, :));
+plot(D_list(3:end), mpe_015(3:end), '-^', 'DisplayName', '$A=0.15$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(3, :));
+ylabel('$J_{MWPE}$');
 xlabel('$D$');
-ylabel('MWPE');
-legend('Location', 'southeast', 'FontSize', 12);
+
+xlim([0.00, 0.50]);
+xticks(0:0.1:0.50);
+legend('Location', 'northeast', 'FontSize', 12);
+
+%% AMI 绘制 ==============================================
+
+CreateThesisFigure();
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98];
+
+plot(D_list(3:end), ami_005(3:end), '-o', 'DisplayName', '$A=0.05$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(1, :));
+hold on;
+plot(D_list(3:end), ami_010(3:end), '-s', 'DisplayName', '$A=0.10$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(2, :));
+plot(D_list(3:end), ami_015(3:end), '-^', 'DisplayName', '$A=0.15$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(3, :));
+ylabel('$J_{AMI}$');
+xlabel('$D$');
+
+xlim([0.00, 0.50]);
+xticks(0:0.1:0.50);
+legend('Location', 'northeast', 'FontSize', 12);
 
 %% RSCM 绘制 ==============================================
-CreateThesisFigure(8, 6);
-layout = tiledlayout(1,1);   %分区作图
-layout.Padding = 'tight';      % 紧凑内边距
-layout.TileSpacing = 'tight';    % 紧密的图块间距
+
+CreateThesisFigure();
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+
 ax = nexttile;
-ax.Position = [0.01 0.01 0.98 0.98]; 
+ax.Position = [0.01 0.01 0.98 0.98];
 
-rscm_015 = ami_015 .* (1-mpe_015-0.735);
-rscm_010 = ami_010 .* (1-mpe_010-0.745);
-rscm_005 = ami_005 .* (1-mpe_005-0.750);
-
-plot(D_list, smooth(rscm_015, 3) + 0, 's-', 'Color', [0.0000, 0.6196, 0.4510], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.0000, 0.6196, 0.4510], 'DisplayName', 'A=0.15'); hold on;
-plot(D_list, smooth(rscm_010, 3), '^-', 'Color', [0.2510, 0.3686, 0.6353], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.2510, 0.3686, 0.6353], 'DisplayName', 'A=0.10');
-plot(D_list, smooth(rscm_005, 3) - 0, 'o-', 'Color', [0.9020, 0.2941, 0.2078], ...
-    'MarkerSize', 5, 'MarkerFaceColor', [0.9020, 0.2941, 0.2078], 'DisplayName', 'A=0.05');
-xlim([0, 0.5]);
-xticks(0:0.1:0.5);
-yticks(0.01:0.01:0.06);
-xlabel('$D$');
+plot(D_list(3:end), rscm_005(3:end), '-o', 'DisplayName', '$A=0.05$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(1, :));
+hold on;
+plot(D_list(3:end), rscm_010(3:end), '-s', 'DisplayName', '$A=0.10$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(2, :));
+plot(D_list(3:end), rscm_015(3:end), '-^', 'DisplayName', '$A=0.15$', 'LineWidth', 1.5, 'MarkerFaceColor', color_order(3, :));
 ylabel('RSCM');
-legend('Location', 'southeast', 'FontSize', 12);
+xlabel('$D$');
+
+xlim([0.00, 0.50]);
+xticks(0:0.1:0.50);
+legend('Location', 'northeast', 'FontSize', 12);
 
 
 %% 2. 计算图形布局 ==============================================

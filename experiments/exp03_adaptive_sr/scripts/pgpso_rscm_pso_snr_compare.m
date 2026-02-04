@@ -16,11 +16,10 @@
 % =========================================================================
 
 clc; clear; close all;
-rng(10)
 
 %% 1. 公共仿真参数 =========================================================
 fs         = 5;               % 采样频率 Hz
-T          = 1000;            % 信号时长 s
+T          = 2000;            % 信号时长 s
 n_samples  = T * fs;          % 信号采样点数
 t_vec      = (0:n_samples-1)' / fs;
 
@@ -30,18 +29,21 @@ clean_sig  = A0 * sin(2*pi*f0*t_vec);
 
 steady_ratio    = 0.1;        % 丢弃前 10% 作为瞬态A
 noise_intensity = 0.6;        % 基准噪声强度 D
-noise_seq = sqrt(2*noise_intensity*fs) * randn(n_samples,1);
 
-fprintf('input SNR = %.4f dB\n', SNRo2(clean_sig+noise_seq, fs, f0));
+% 独立重复次数；留空 rng_seed 将使用非确定性噪声
+num_runs = 5;
+rng_seed = [];
+if ~isempty(rng_seed)
+    rng(rng_seed);
+end
 
 % HSUBSR 势结构参数搜索范围，使用 "物理映射搜索策略" (xm, dU, shape_factor)
-input_rms = std(clean_sig+noise_seq);
-theta_min = [0.3, 0.1, 1.1];  % [xm, dU, shape_factor]
-theta_max = [3.0, 3.0, 50.0];
+theta_min = [0.5, 0.1, 1.001];  % [xm, dU, shape_factor]
+theta_max = [5.0, 5.0, 1.999];
 
 %% 2. PGPSO / 标准 PSO 公共参数 =============================================
 bpg_opts.num_particles = 30;
-bpg_opts.max_iter      = 30;
+bpg_opts.max_iter      = 100;
 bpg_opts.goal          = 'min';          % 优化目标：'min' 或 'max'
 
 % PSO 参数范围
@@ -59,41 +61,82 @@ bpg_opts.w_mpe = 1;
 
 bpg_opts.display      = true;     % 实验 1 开日志，实验 2 可改为 false
 
-%% 3. 单次收敛曲线对比（盲适应度） ============================================
-fprintf('==== 单次收敛曲线对比 ====\n');
+%% 3. 多次独立收敛曲线对比（盲适应度） ========================================
+fprintf('==== 独立运行次数：%d ====\n', num_runs);
 
-% --- 标准 PSO ---
-evaluator_pso = @(x) SNREvaluator(x, clean_sig, noise_seq, fs, f0);
-[fit_std, theta_std, curve] = PSO(bpg_opts.num_particles, bpg_opts.max_iter, theta_min, theta_max, ...
-    3, evaluator_pso);
+fit_std_all      = zeros(num_runs, 1);
+fit_bpg_all      = zeros(num_runs, 1);
+snr_std_chk_all  = zeros(num_runs, 1);
+snr_bpg_chk_all  = zeros(num_runs, 1);
+input_snr_all    = zeros(num_runs, 1);  % 记录每次运行的输入SNR
+theta_std_all    = zeros(num_runs, 3);
+theta_bpg_all    = zeros(num_runs, 3);
+curve_all        = cell(num_runs, 1);
+hist_bpg_all     = cell(num_runs, 1);
 
-% --- PGPSO ---
-% evaluator_pgpso = @(x) RSCMEvaluator(x, clean_sig, noise_seq, fs, bpg_opts);
-% [fit_bpg, theta_bpg, hist_bpg] = PGPSO( ...
-%     theta_min, theta_max, bpg_opts, evaluator_pgpso);
+for r = 1:num_runs
+    noise_seq = sqrt(2*noise_intensity*fs) * randn(n_samples,1);
+    input_snr = SNRo2(clean_sig+noise_seq, fs, f0);
+    
+    fprintf('\n---- Run %d/%d ----\n', r, num_runs);
+    fprintf('input SNR = %.4f dB\n', input_snr);
+    
+    % --- 标准 PSO ---
+    evaluator_pso = @(x) SNREvaluator(x, clean_sig, noise_seq, fs, f0);
+    [fit_std, theta_std, curve] = PSO(bpg_opts.num_particles, bpg_opts.max_iter, theta_min, theta_max, ...
+        3, evaluator_pso);
+    
+    % --- PGPSO ---
+    evaluator_pgpso = @(x) RSCMEvaluator(x, clean_sig, noise_seq, fs, bpg_opts);
+    [fit_bpg, theta_bpg, hist_bpg] = PGPSO( ...
+        theta_min, theta_max, bpg_opts, evaluator_pgpso);
+    
+    fprintf('PSO  最优适应度 SNR = %.4f\n', fit_std);
+    fprintf('PGPSO 最优盲适应度 J = %.4f\n', fit_bpg);
+    
+    % 用真实 f0 验证 SNR
+    [std_a, std_b, std_k1, std_k2] = CalibrateHSUBSR(theta_std(1), theta_std(2), theta_std(3));
+    drift_std = @(x) HSUBSR_Dynamics(x, std_a, std_b, std_k1, std_k2);
+    x_std = RK4Solver(drift_std, clean_sig+noise_seq, 1/fs);
+    x_std_steady = x_std(round(steady_ratio*n_samples):end);
+    snr_std_chk  = SNRo2(x_std_steady, fs, f0);
+    
+    [bpg_a, bpg_b, bpg_k1, bpg_k2] = CalibrateHSUBSR(theta_bpg(1), theta_bpg(2), theta_bpg(3));
+    drift_bpg = @(x) HSUBSR_Dynamics(x, bpg_a, bpg_b, bpg_k1, bpg_k2);
+    x_bpg = RK4Solver(drift_bpg, clean_sig+noise_seq, 1/fs);
+    x_bpg_steady = x_bpg(round(steady_ratio*n_samples):end);
+    snr_bpg_chk  = SNRo2(x_bpg_steady, fs, f0);
+    
+    fprintf('标准 PSO 验证 SNR = %.4f dB\n', snr_std_chk);
+    fprintf('最佳参数 [a, b, k1, k2] = [%.4f, %.4f, %.4f, %.4f]\n', std_a, std_b, std_k1, std_k2);
+    fprintf('PGPSO  验证 SNR = %.4f dB\n', snr_bpg_chk);
+    
+    % 缓存结果
+    fit_std_all(r)     = fit_std;
+    fit_bpg_all(r)     = fit_bpg;
+    snr_std_chk_all(r) = snr_std_chk;
+    snr_bpg_chk_all(r) = snr_bpg_chk;
+    input_snr_all(r)   = input_snr;
+    theta_std_all(r,:) = theta_std;
+    theta_bpg_all(r,:) = theta_bpg;
+    curve_all{r}       = curve;
+    hist_bpg_all{r}    = hist_bpg;
+end
 
-fprintf('PSO 单次最优适应度 SNR = %.4f\n', fit_std);
-% fprintf('PGPSO  单次最优盲适应度 J = %.4f\n', fit_bpg);
+fprintf('\n==== 统计结果（%d 次独立运行）====\n', num_runs);
+fprintf('平均输入 SNR = %.4f dB，标准差 = %.4f\n', mean(input_snr_all), std(input_snr_all));
+fprintf('PSO  平均验证 SNR = %.4f dB，标准差 = %.4f\n', mean(snr_std_chk_all), std(snr_std_chk_all));
+fprintf('PGPSO 平均验证 SNR = %.4f dB，标准差 = %.4f\n', mean(snr_bpg_chk_all), std(snr_bpg_chk_all));
 
-% 用真实 f0 验证 SNR
-[std_a, std_b, std_k1, std_k2] = CalibrateHSUBSR(theta_std(1), theta_std(2), theta_std(3));
-drift_std = @(x) HSUBSR_Dynamics(x, std_a, std_b, std_k1, std_k2);
-x_std = RK4Solver(drift_std, clean_sig+noise_seq, 1/fs);
-x_std_steady = x_std(round(steady_ratio*n_samples):end);
-snr_std_chk  = SNRo2(x_std_steady, fs, f0);
-Plot_Time_Frequency(x_std, fs, length(x_std));
-
-% [bpg_a, bpg_b, bpg_k1, bpg_k2] = CalibrateHSUBSR(theta_bpg(1), theta_bpg(2), theta_bpg(3));
-% drift_bpg = @(x) HSUBSR_Dynamics(x, bpg_a, bpg_b, bpg_k1, bpg_k2);
-% x_bpg = RK4Solver(drift_bpg, clean_sig+noise_seq, 1/fs);
-% x_bpg_steady = x_bpg(round(steady_ratio*n_samples):end);
-% snr_bpg_chk  = SNRo2(x_bpg_steady, fs, f0);
-% Plot_Time_Frequency(x_bpg, fs, length(x_bpg));
-
-fprintf('标准 PSO 单次验证 SNR = %.4f dB\n', snr_std_chk);
-fprintf('最佳参数 [a, b, k1, k2] 为 [%.4f, %.4f,%.4f,%.4f]\n', std_a, std_b, ...
-    std_k1, std_k2);
-% fprintf('PGPSO  单次验证 SNR = %.4f dB\n', snr_bpg_chk);
+results.curves.pso_snr = curve_all;
+results.curves.pgpso_rscm = hist_bpg_all;
+results.fitness.pso_snr = fit_std_all;
+results.fitness.pgpso_rscm = fit_bpg_all;
+results.snr_check.pso_snr = snr_std_chk_all;
+results.snr_check.pgpso_rscm = snr_bpg_chk_all;
+results.input_snr = input_snr_all;
+results.params.pso_snr = theta_std_all;
+results.params.pgpso_rscm = theta_bpg_all;
 
 %% 4. 绘制收敛曲线 ==========================================================
 % figure('Color','w'); hold on; box on;
