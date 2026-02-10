@@ -1,4 +1,4 @@
-function [fg, pg, Convergence_curve] = PSO(SearchAgents_no, Max_iter, lb, ub, dim, fobj, maximize)
+function [fg, pg, Convergence_curve] = PSO(SearchAgents_no, Max_iter, lb, ub, dim, fobj, maximize, seed)
 %PSO 粒子群优化（可最小化或最大化）。
 %   [fg, pg, Convergence_curve] = PSO(SearchAgents_no, Max_iter, lb, ub, dim, fobj, maximize)
 %   在给定边界内搜索最优解，默认最小化目标函数 fobj，可选地求极值。
@@ -10,6 +10,7 @@ function [fg, pg, Convergence_curve] = PSO(SearchAgents_no, Max_iter, lb, ub, di
 %   dim             - 维度（应与 lb/ub 长度一致）。
 %   fobj            - 目标函数句柄，输入 1×dim 位置向量，返回标量。
 %   maximize        - 可选，true 时求最大化；false 或省略求最小化。
+%   seed            - 可选，随机数种子（用于结果复现）。
 %
 % 输出参数
 %   fg              - 最优目标值（按 maximize 方向）。
@@ -39,7 +40,12 @@ pg = zeros(1, dim); % 全局最优解位置
 vmax = abs(ub - lb); % 速度最大值
 vmin = -vmax; % 速度最小值
 
-% rng(1);
+if nargin >= 8 && ~isempty(seed)
+    rng(seed);
+else
+    rng('shuffle');
+end
+
 Positions = rand(SearchAgents_no, dim) ...
     .* (ub - lb) + lb;
 
