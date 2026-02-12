@@ -30,6 +30,10 @@ for i = 1 : N-1
     
     % 更新状态
     s_out(i+1) = s_out(i) + (k1 + 2*k2 + 2*k3 + k4) / 6;
+
+    if abs(s_out(i+1)) > 5
+        s_out(i+1) = 5 * sign(s_out(i+1)); % 限制输出范围，防止数值爆炸
+    end
 end
 
 end

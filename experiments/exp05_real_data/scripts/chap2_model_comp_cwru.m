@@ -14,10 +14,10 @@
 % =========================================================================
 
 clc; clear; close all;
-seed = 5;
+seed = 1;
 
-% 1. 加载数据 ==============================================================
-data_filename = '105.mat';
+%% 1. 加载数据 ==============================================================
+data_filename = '209.mat';
 S = load(data_filename);  % 加载到结构体
 
 % 查找变量名
@@ -32,17 +32,22 @@ end
 % 提取数据
 raw_sig = S.(var_names{de_idx(1)});
 rpm = S.(var_names{rpm_idx(1)});
+fs_raw = 12000;      % CWRU标准采样率 12kHz
 
 % 计算轴承故障频率
 [freqs, desc] = BearingHz(rpm);
+f_fault_real = freqs.BPFI;      % 内圈故障频率
 
-% 2. 信号预处理 ============================================================
+%% 2. 信号预处理 ============================================================
 % 截取数据片段进行分析（避免计算量过大）
-fs_raw = 12000;      % CWRU标准采样率 12kHz
-N_sample = 8192; 
+N_sample = 8192;
 N = length(raw_sig);
 t = (0:N-1)/fs_raw;
 sig_segment = raw_sig(1:N_sample);
+
+% 输入信号的频谱分析
+fprintf('Input snr: %.4fdb\n', SNRo2(sig_segment, fs_raw, f_fault_real));
+Plot_Time_Frequency2(sig_segment, fs_raw, 'FaultFreq', f_fault_real, 'FaultLabel', "BPFI");
 
 % 包络提取，SR作为低通滤波器，直接处理高频载波效果差，需先提取故障包络
 sig_env = abs(hilbert(sig_segment));
@@ -57,8 +62,7 @@ sig_std = std(sig_ac);
 sig_processed = (sig_ac - sig_mean) / sig_std;
 
 % 2.4 频率尺度变换 (Frequency Rescaling)
-% 将真实采样频率映射到固定的5Hz 
-f_fault_real = freqs.BPFI;      % 目标故障频率
+% 将真实采样频率映射到固定的5Hz
 R = fs_raw / 5;     % 尺度变换系数 R
 f_target_sr = f_fault_real / R;     % 变换后的目标频率
 
@@ -67,7 +71,10 @@ f_target_sr = f_fault_real / R;     % 变换后的目标频率
 % 理论依据: d x / d (t/R) = ... => 相当于时间变慢，频率变低
 h_sr = (1/fs_raw) * R;
 
-%% 3. 自适应 PSO 寻优 (Adaptive Optimization) ==============================
+fprintf('frequency rescaling factor R: %.2f\n', R);
+fprintf('Original target frequency: %.3f Hz, Rescaled target frequency: %.3f Hz\n', f_fault_real, f_target_sr);
+
+%% 3. 自适应 PSO 寻优 ==============================
 
 % PSO 参数设置
 dim = 2;              % 优化变量维度 [xm, dU]
@@ -75,8 +82,8 @@ lb = [0.1, 0.1];      % 参数下界
 ub = [5.0, 5.0];      % 参数上界
 
 dim_hs = 3;           % HSUBSR 多一个 shape 参数
-lb_hs = [0.1, 0.1, 1.01];
-ub_hs = [5.0, 5.0, 50];
+lb_hs = [0.1, 0.1, 1.1];
+ub_hs = [5.0, 5.0, 100];
 
 SearchAgents_no = 20; % 种群规模
 Max_iter = 50;        % 迭代次数
@@ -113,7 +120,7 @@ for m = 1:numel(models)
         current_max_snr = -best_score;
         run_log{i} = struct('snr', current_max_snr, 'params', best_pos, 'curve', curve);
     end
-
+    
     % 汇总当前模型的多次结果
     best_snr = -inf;
     best_params = [];
@@ -125,7 +132,7 @@ for m = 1:numel(models)
             best_curve = run_log{i}.curve;
         end
     end
-
+    
     results(m).name = models(m).name;
     results(m).best_snr = best_snr;
     results(m).best_params = best_params;
@@ -140,7 +147,7 @@ for m = 1:numel(results)
     fprintf('     Params: %s\n', mat2str(results(m).best_params, 4));
 end
 
-% 最优结果验证与可视化
+%% 4. 最优结果验证与可视化 ============================================================
 for m = 1:numel(results)
     fprintf('\nValidating Model: %s\n', results(m).name);
     best_params = results(m).best_params;
@@ -154,13 +161,16 @@ for m = 1:numel(results)
         otherwise
             error('Unknown model name: %s', results(m).name);
     end
-    Plot_Time_Frequency(x_sr, 5, length(x_sr));
+    fs_restore = (1 / h_sr) * R; % restore to original frequency scale
+    Plot_Time_Frequency(x_sr, fs_restore);
+    snr_val = SNRo2(x_sr, fs_restore, f_fault_real);
+    fprintf('Validated SNR: %.2f dB\n', snr_val);
 end
 
 %% 辅助函数
 function [freqs, description] = BearingHz(Fr_rpm, D, d, Z, alpha_deg, verbose)
 % BearingHz 计算滚动轴承的故障特征频率
-% 
+%
 % Useage:
 %   freqs = BearingHz(1797); % 使用 CWRU 默认参数 (SKF 6205-2RS)
 %   freqs = BearingHz(1797, 39.04, 7.94, 9, 0); % 自定义参数
@@ -181,7 +191,7 @@ function [freqs, description] = BearingHz(Fr_rpm, D, d, Z, alpha_deg, verbose)
 %       .FTF  : 保持架(基频)频率
 %       .Fr   : 转频
 %
-% Reference: 
+% Reference:
 %   CWRU Bearing: SKF 6205-2RS JEM SKF
 %   D = 1.537 inch ≈ 39.04 mm
 %   d = 0.3126 inch ≈ 7.94 mm
@@ -195,10 +205,10 @@ if nargin < 6, verbose = true; end
 % 如果只输入了转速，默认加载 SKF 6205-2RS 参数
 if nargin < 5 || (isempty(D) && isempty(d))
     % SKF 6205-2RS 参数 (CWRU标准)
-    D = 39.04; 
-    d = 7.94;  
-    Z = 9;     
-    alpha_deg = 0; 
+    D = 39.04;
+    d = 7.94;
+    Z = 9;
+    alpha_deg = 0;
     if verbose && nargin < 2
         fprintf('Info: Using default CWRU (SKF 6205-2RS) parameters.\n');
     end
@@ -208,7 +218,7 @@ end
 alpha = alpha_deg * pi / 180;
 
 % 转速 RPM -> Hz
-fr = Fr_rpm / 60; 
+fr = Fr_rpm / 60;
 
 % 几何比率 (简化公式书写)
 ratio = (d / D) * cos(alpha);
@@ -241,15 +251,15 @@ freqs.FTF  = ftf;
 
 % 生成描述文本（可选）
 description = sprintf(['Rotation Frequencies (Fr = %.2f Hz):\n' ...
-                       '  Inner Race (BPFI): %.2f Hz (%.2f X)\n' ...
-                       '  Outer Race (BPFO): %.2f Hz (%.2f X)\n' ...
-                       '  Ball Spin  (BSF) : %.2f Hz (%.2f X)\n' ...
-                       '  Cage       (FTF) : %.2f Hz (%.2f X)'], ...
-                       mean(fr), ...
-                       mean(bpfi), mean(bpfi)/mean(fr), ...
-                       mean(bpfo), mean(bpfo)/mean(fr), ...
-                       mean(bsf),  mean(bsf)/mean(fr), ...
-                       mean(ftf),  mean(ftf)/mean(fr));
+    '  Inner Race (BPFI): %.2f Hz (%.2f X)\n' ...
+    '  Outer Race (BPFO): %.2f Hz (%.2f X)\n' ...
+    '  Ball Spin  (BSF) : %.2f Hz (%.2f X)\n' ...
+    '  Cage       (FTF) : %.2f Hz (%.2f X)'], ...
+    mean(fr), ...
+    mean(bpfi), mean(bpfi)/mean(fr), ...
+    mean(bpfo), mean(bpfo)/mean(fr), ...
+    mean(bsf),  mean(bsf)/mean(fr), ...
+    mean(ftf),  mean(ftf)/mean(fr));
 
 if verbose
     fprintf('--------------------------------------------------\n');
@@ -261,61 +271,182 @@ end
 
 % --- 1. UBSR 映射与适应度 ---
 function [a, b] = MapParams_UBSR(xm, dU)
-    % 物理推导: U(x) = -a/2 x^2 + b/4 x^4
-    % xm^2 = a/b; dU = a^2/(4b)
-    % 解得: a = 4*dU / xm^2; b = 4*dU / xm^4
-    a = 4 * dU / (xm^2);
-    b = 4 * dU / (xm^4);
+% 物理推导: U(x) = -a/2 x^2 + b/4 x^4
+% xm^2 = a/b; dU = a^2/(4b)
+% 解得: a = 4*dU / xm^2; b = 4*dU / xm^4
+a = 4 * dU / (xm^2);
+b = 4 * dU / (xm^4);
 end
 
 function val = Fitness_UBSR_Fair(p, s, h, f0)
-    [a, b] = MapParams_UBSR(p(1), p(2)); % p=[xm, dU]
-    drift = @(x) UBSR_Dynamics(x, a, b);
-    x = RK4Solver(drift, s, h);
-    x = x(round(0.1*end):end);
-    val = -SNRo2(x, 1/h, f0);
+[a, b] = MapParams_UBSR(p(1), p(2)); % p=[xm, dU]
+drift = @(x) UBSR_Dynamics(x, a, b);
+x = RK4Solver(drift, s, h);
+x = x(round(0.1*end):end);
+val = -SNRo2(x, 1/h, f0);
 end
 
 function x = GetOutput_UBSR_Fair(p, s, h)
-    [a, b] = MapParams_UBSR(p(1), p(2));
-    drift = @(x) UBSR_Dynamics(x, a, b);
-    x = RK4Solver(drift, s, h);
+[a, b] = MapParams_UBSR(p(1), p(2));
+drift = @(x) UBSR_Dynamics(x, a, b);
+x = RK4Solver(drift, s, h);
+x = x(round(0.1*end):end);
 end
 
 % --- 2. PLBSR 映射与适应度 ---
 function [U0, L0] = MapParams_PLBSR(xm, dU)
-    % PLBSR 参数直接对应: L0是阱宽(xm), U0是垒高(dU)
-    L0 = xm;
-    U0 = dU;
+% PLBSR 参数直接对应: L0是阱宽(xm), U0是垒高(dU)
+L0 = xm;
+U0 = dU;
 end
 
 function val = Fitness_PLBSR_Fair(p, s, h, f0)
-    [U0, L0] = MapParams_PLBSR(p(1), p(2)); % p=[xm, dU]
-    drift = @(x) PLBSR_Dynamics(x, U0, L0);
-    x = RK4Solver(drift, s, h);
-    x = x(round(0.1*end):end);
-    val = -SNRo2(x, 1/h, f0);
+[U0, L0] = MapParams_PLBSR(p(1), p(2)); % p=[xm, dU]
+drift = @(x) PLBSR_Dynamics(x, U0, L0);
+x = RK4Solver(drift, s, h);
+x = x(round(0.1*end):end);
+val = -SNRo2(x, 1/h, f0);
 end
 
 function x = GetOutput_PLBSR_Fair(p, s, h)
-    [U0, L0] = MapParams_PLBSR(p(1), p(2));
-    drift = @(x) PLBSR_Dynamics(x, U0, L0);
-    x = RK4Solver(drift, s, h);
+[U0, L0] = MapParams_PLBSR(p(1), p(2));
+drift = @(x) PLBSR_Dynamics(x, U0, L0);
+x = RK4Solver(drift, s, h);
+x = x(round(0.1*end):end);
 end
 
 % --- 3. HSUBSR 映射与适应度 ---
 function val = Fitness_HSUBSR_Fair(p, s, h, f0)
-    % p = [xm, dU, shape]
-    % 调用已有的校准函数
-    [a, b, k1, k2] = CalibrateHSUBSR(p(1), p(2), p(3));
-    drift = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
-    x = RK4Solver(drift, s, h);
-    x = x(round(0.1*end):end);
-    val = -SNRo2(x, 1/h, f0);
+% p = [xm, dU, shape]
+% 调用已有的校准函数
+[a, b, k1, k2] = CalibrateHSUBSR(p(1), p(2), p(3));
+drift = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
+x = RK4Solver(drift, s, h);
+x = x(round(0.1*end):end);
+val = -SNRo2(x, 1/h, f0);
 end
 
 function x = GetOutput_HSUBSR_Fair(p, s, h)
-    [a, b, k1, k2] = CalibrateHSUBSR(p(1), p(2), p(3));
-    drift = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
-    x = RK4Solver(drift, s, h);
+[a, b, k1, k2] = CalibrateHSUBSR(p(1), p(2), p(3));
+drift = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
+x = RK4Solver(drift, s, h);
+x = x(round(0.1*end):end);
+end
+
+function Plot_Time_Frequency(x, fs, options)
+% 绘制实信号的单边幅频图
+%   该函数用于同时绘制信号的时域波形和频域幅频特性曲线
+%
+% 输入参数:
+%   x - 输入实信号，一维数组
+%   fs - 采样频率，单位Hz
+%   N - 信号长度，即信号点数
+%   options - 绘图选项结构体
+%       .LineWidth - 线条宽度，默认为1
+
+% 参数解析
+arguments
+    x   double
+    fs  double
+    options.LineWidth (1,1) {mustBeNumeric} = 1
+end
+
+N = length(x);
+% 时间轴和频率轴计算
+t = (0:N-1) / fs;
+f = fs/N*(0:(N/2)); % 频率范围（包含奈奎斯特频率）
+
+% FFT计算和幅值归一化
+P2 = abs(fft(x)/N); % 计算fft并归一化纵轴（双边）
+P1 = P2(1:N/2+1);   % 截取单边谱
+P1(2:end-1) = 2*P1(2:end-1);    % 能量还原（除0Hz和奈奎斯特频率）
+
+% 绘制时域和频域图形
+SetThesisDefaultStyle();
+CreateThesisFigure(8, 3);
+layout = tiledlayout(1,2);   %分区作图
+layout.Padding = 'tight';      % 紧凑内边距
+layout.TileSpacing = 'tight';    % 紧密的图块间距
+
+nexttile
+plot(t, x, 'LineWidth', options.LineWidth);
+xlabel('Time[s]')
+ylabel('Amplitude')
+
+nexttile;
+plot(f, P1, 'LineWidth', options.LineWidth);
+xlim([0 1000])
+xlabel('Frequency[Hz]')
+ylabel('Amplitude')
+
+end
+
+function Plot_Time_Frequency2(x, fs, options)
+% 绘制实信号的单边幅频图
+%   该函数用于同时绘制信号的时域波形和频域幅频特性曲线
+%
+% 输入参数:
+%   x - 输入实信号，一维数组
+%   fs - 采样频率，单位Hz
+%   N - 信号长度，即信号点数
+%   options - 绘图选项结构体
+%       .LineWidth - 线条宽度，默认为1
+
+% 参数解析
+arguments
+    x   double
+    fs  double
+    options.LineWidth (1,1) {mustBeNumeric} = 1
+    options.FaultFreq (1,1) double = NaN
+    options.FaultLabel (1,1) string = "BPFI"
+end
+
+N = length(x);
+% 时间轴和频率轴计算
+t = (0:N-1) / fs;
+f = fs/N*(0:(N/2)); % 频率范围（包含奈奎斯特频率）
+
+% FFT计算和幅值归一化
+P2 = abs(fft(x)/N); % 计算fft并归一化纵轴（双边）
+P1 = P2(1:N/2+1);   % 截取单边谱
+P1(2:end-1) = 2*P1(2:end-1);    % 能量还原（除0Hz和奈奎斯特频率）
+
+% 绘制时域和频域图形
+SetThesisDefaultStyle();
+CreateThesisFigure(6, 9);
+layout = tiledlayout(3,1);   %分区作图
+layout.Padding = 'tight';      % 紧凑内边距
+layout.TileSpacing = 'tight';    % 紧密的图块间距
+
+nexttile
+plot(t, x, 'LineWidth', options.LineWidth);
+xlabel('Time[s]')
+ylabel('Amplitude')
+ylim([-2 2])
+xlim([0 0.6])
+
+nexttile;
+plot(f, P1, 'LineWidth', options.LineWidth);
+xlabel('Frequency[Hz]')
+ylabel('Amplitude')
+
+ax = nexttile;
+plot(f, P1, 'LineWidth', options.LineWidth);
+xlim([0 1000])
+xlabel('Frequency[Hz]')
+ylabel('Amplitude')
+
+if ~isnan(options.FaultFreq)
+    ff = options.FaultFreq;
+    yval = interp1(f, P1, ff, 'linear', 'extrap');
+    yval = max(0, min(yval, max(P1)));
+    
+    axpos = ax.Position; % normalized in figure
+    xnorm = axpos(1) + (ff - ax.XLim(1)) / diff(ax.XLim) * axpos(3);
+    ynorm = axpos(2) + (yval - ax.YLim(1)) / diff(ax.YLim) * axpos(4) + 0.01;
+    annotation('textarrow', [xnorm + 0.06 xnorm], [ynorm + 0.06 ynorm], ...
+        'String', sprintf('%s %.2f Hz', options.FaultLabel, ff), ...
+        'FontSize', 10, 'LineWidth', 1);
+end
+
 end
