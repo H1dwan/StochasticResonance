@@ -18,10 +18,11 @@
 clc; clear; close all;
 
 
-load('res_opt_once_best.mat');
-noise = results.noise;
+load('res_opt_once_2.mat');
+% noise = results.noise;
 signal = results.sig;
-N = length(noise);
+N = length(signal);
+noise = sqrt(2*5*0.4)*randn(size(signal));
 steay_start = round(0.1 * N) + 1;
 
 params_fixed = results.best_params.Fixed;
@@ -32,7 +33,7 @@ fs = 5;
 f0 = 0.01;
 
 fprintf('输入信号 SNR: %.4f dB\n', SNRo2(noise+signal, fs, f0));
-% Plot_Time_Frequency(noise+signal, fs, length(noise), "LineWidth", 1.0);
+Plot_Time_Frequency(noise+signal, fs, length(noise), "LineWidth", 1.0);
 
 % csr_fixed = Build_Cascade_SR(3, [params_fixed params_fixed params_fixed]);
 % output_fixed = Process_Cascade_SR(noise+signal, csr_fixed, fs);
@@ -44,10 +45,10 @@ fprintf('输入信号 SNR: %.4f dB\n', SNRo2(noise+signal, fs, f0));
 % fprintf('分层参数级联SR输出信号 SNR: %.4f dB\n', SNRo2(output_layer(steay_start:end), fs, f0));
 % Plot_Time_Frequency(output_layer, fs, length(output_layer), "LineWidth", 1.0);
 
-csr_global = Build_Cascade_SR(3, params_global);
-output_global = Process_Cascade_SR(noise+signal, csr_global, fs);
-fprintf('全局参数级联SR输出信号 SNR: %.4f dB\n', SNRo2(output_global(steay_start:end), fs, f0));
-Plot_Time_Frequency(output_global, fs, length(output_global), "LineWidth", 1.0);
+% csr_global = Build_Cascade_SR(3, params_global);
+% output_global = Process_Cascade_SR(noise+signal, csr_global, fs);
+% fprintf('全局参数级联SR输出信号 SNR: %.4f dB\n', SNRo2(output_global(steay_start:end), fs, f0));
+% Plot_Time_Frequency(output_global, fs, length(output_global), "LineWidth", 1.0);
 
 
 

@@ -40,25 +40,34 @@ shape_factor = 2; % shape factor k1/k2
 drift_hsubsr = @(x) HSUBSR_Dynamics(x, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr);
 
 %% 2. 势函数及漂移项对比 =============================================
-fig = CreateThesisFigure(14, 6);
-x = -3:0.01:3;
-subplot(1,2,1); hold on;
-% plot(x, CBSR_Potential(x, a_cbsr, b_cbsr), '-', 'LineWidth', 2); 
-plot(x, UBSR_Potential(x, a_ubsr, b_ubsr), '-', 'LineWidth', 2);
-plot(x, PLBSR_Potential(x, U0, L0) - PLBSR_Potential(0, U0, L0), '--', 'LineWidth', 2);
-plot(x, HSUBSR_Potential(x, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr)-...
-    HSUBSR_Potential(0, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr), '-.', 'LineWidth', 2);
+fig = CreateThesisFigure(12, 5);
+layout = tiledlayout(1,2);      % 分区作图
+layout.Padding = 'tight';       % 紧凑内边距
+layout.TileSpacing = 'tight';   % 紧密的图块间距
+
+x = -2:0.01:2;
+nexttile; hold on;
+plot(x, CBSR_Potential(x, a_cbsr, b_cbsr), '-', 'LineWidth', 2);
+plot(x, UBSR_Potential(x, a_ubsr, b_ubsr), '--', 'LineWidth', 2);
+plot(x, PLBSR_Potential(x, U0, L0) - PLBSR_Potential(0, U0, L0), '-.', 'LineWidth', 2);
+% plot(x, HSUBSR_Potential(x, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr)-...
+%     HSUBSR_Potential(0, a_hsubsr, b_hsubsr, k1_hsubsr, k2_hsubsr), '-.', 'LineWidth', 2);
 ylim([-dU, dU]);
+xticks(-2:1:2);
+yticks(-dU:0.5*dU:dU);
 xlabel('$x$')
 ylabel('$U(x)$')
-legend( 'UBSR', 'PLBSR', 'HSUBSR', 'Location', 'north');
+legend( 'CBSR', 'UBSR', 'PLBSR', 'Location', 'north');
 
-subplot(1,2,2); hold on;
-% plot(x, drift_cbsr(x), '-', 'LineWidth', 2); 
-plot(x, drift_ubsr(x), '-', 'LineWidth', 2);
-plot(x, drift_plbsr(x), '--', 'LineWidth', 2);
-plot(x, drift_hsubsr(x), '-.', 'LineWidth', 2);
-legend('UBSR', 'PLBSR', 'HSUBSR', 'Location', 'northeast');
+nexttile; hold on;
+plot(x, drift_cbsr(x), '-', 'LineWidth', 2);
+plot(x, drift_ubsr(x), '--', 'LineWidth', 2);
+plot(x, drift_plbsr(x), '-.', 'LineWidth', 2);
+% plot(x, drift_hsubsr(x), '-.', 'LineWidth', 2);
+legend( 'CBSR', 'UBSR', 'PLBSR', 'Location', 'northeast');
+% legend('UBSR', 'PLBSR', 'HSUBSR', 'Location', 'northeast');
+xticks(-2:1:2);
 ylim([-1, 1]);
+yticks(-1:0.5:1);
 xlabel('$x$')
 ylabel('-$U^{\prime}(x)$')

@@ -39,7 +39,8 @@ fprintf('    采样率: %d Hz, 时长: %d s\n', fs, T);
 fprintf('    输入 SNR: %.4f dB\n', snr_in);
 
 %% 2. 优化与计时参数
-max_test_layers = 6;  % 测试的最大层数 (例如测试 1~5 层)
+max_test_layers = 7;  % 测试的最大层数 (例如测试 1~5 层)
+num_repeats     = 1; % 每个层数重复运行次数
 search_agents   = 20; % PSO 种群规模 (适当减小以节省时间)
 max_iter        = 50; % PSO 迭代次数
 
@@ -49,87 +50,91 @@ ub = [10.00, 10.00];
 dim = 2;
 
 % 数据记录容器
-record_time_step = zeros(max_test_layers, 1); % 每一层的单步耗时
-record_time_cum  = zeros(max_test_layers, 1); % 累计耗时 (N层系统总耗时)
-record_snr       = zeros(max_test_layers, 1); % 每一层的输出SNR
-
-% 初始化逐级循环变量
-current_input = clean_sig;
-current_noise = noise_seq;
-total_elapsed_time = 0;
+record_time_avg = zeros(max_test_layers, 1);  % 每个层数的平均总耗时
+record_snr_avg  = zeros(max_test_layers, 1);  % 每个层数的平均输出SNR
 
 %% 3. 逐层优化与计时循环
-fprintf('\n>>> 开始逐层优化与计时测试...\n');
-fprintf('| Layer | Step Time (s) | Total Time (s) | Output SNR (dB) |\n');
-fprintf('|-------|---------------|----------------|-----------------|\n');
+fprintf('\n>>> 开始逐层优化与计时测试（每个层数重复 %d 次）...\n', num_repeats);
+fprintf('| Layer | Avg Time (s) | Avg Output SNR (dB) |\n');
+fprintf('|-------|--------------|---------------------|\n');
 
 for layer = 1:max_test_layers
-    % --- 计时开始 ---
-    t_start = tic;
+    snr_runs = zeros(num_repeats, 1);
+    time_runs = zeros(num_repeats, 1);
     
-    % 1. 定义适应度函数 (闭包捕获当前输入)
-    fobj = @(params) CostFunction_CBSR(params, current_input, current_noise, fs, f0);
+    fprintf('  Layer %d: ', layer);
     
-    % 2. 执行 PSO 优化
-    % 注意：PSO 内部有随机性，但计算量相对固定
-    [best_score, best_pos, ~] = PSO(search_agents, max_iter, lb, ub, dim, fobj);
+    for rep = 1:num_repeats
+        % 每次重复都从同一初始输入开始，运行到指定层数
+        current_input = clean_sig;
+        current_noise = noise_seq;
+        
+        t_start = tic;
+        best_score = NaN;
+        
+        for k = 1:layer
+            fobj = @(params) CostFunction_CBSR(params, current_input, current_noise, fs, f0);
+            [best_score, best_pos, ~] = PSO(search_agents, max_iter, lb, ub, dim, fobj);
+            
+            a_opt = best_pos(1);
+            b_opt = best_pos(2);
+            drift_func = @(x) CBSR_Dynamics(x, a_opt, b_opt);
+            x_out = RK4Solver2(drift_func, current_input, current_noise, fs);
+            
+            current_input = x_out;
+            current_noise = zeros(N, 1); % 后续层无新噪声
+        end
+        
+        time_runs(rep) = toc(t_start);
+        snr_runs(rep) = -best_score;
+        
+        % 进度显示：每10次打印一次，并在最后一次换行
+        if mod(rep, 10) == 0 || rep == num_repeats
+            fprintf('%d/%d ', rep, num_repeats);
+            if rep == num_repeats
+                fprintf('\n');
+            end
+        end
+    end
     
-    % 3. 使用最优参数生成输出 (用于下一层)
-    a_opt = best_pos(1);
-    b_opt = best_pos(2);
-    drift_func = @(x) CBSR_Dynamics(x, a_opt, b_opt);
-    x_out = RK4Solver2(drift_func, current_input, current_noise, fs);
+    record_time_avg(layer) = mean(time_runs);
+    record_snr_avg(layer) = mean(snr_runs);
     
-    % --- 计时结束 ---
-    t_step = toc(t_start);
-    
-    % --- 更新数据 ---
-    total_elapsed_time = total_elapsed_time + t_step;
-    
-    record_time_step(layer) = t_step;
-    record_time_cum(layer)  = total_elapsed_time;
-    record_snr(layer)       = -best_score; % 还原 SNR
-    
-    % 打印当前层结果
-    fprintf('|   %d   |    %7.2f    |    %7.2f     |     %7.4f     |\n', ...
-        layer, t_step, total_elapsed_time, record_snr(layer));
-    
-    % 更新下一层输入 (级联操作)
-    current_input = x_out;
-    current_noise = zeros(N, 1); % 后续层无新噪声
+    fprintf('|   %d   |   %8.2f   |       %8.4f      |\n', ...
+        layer, record_time_avg(layer), record_snr_avg(layer));
 end
 
-fprintf('|-------|---------------|----------------|-----------------|\n');
+fprintf('|-------|--------------|---------------------|\n');
 
 %% 4. 结果可视化分析
 figure('Color', 'w', 'Position', [100, 100, 900, 500]);
 
 % 利用 yyaxis 绘制双轴图
 yyaxis left
-p1 = plot(1:max_test_layers, record_snr, '-bo', 'LineWidth', 2, 'MarkerFaceColor', 'b');
+p1 = plot(1:max_test_layers, record_snr_avg, '-bo', 'LineWidth', 2, 'MarkerFaceColor', 'b');
 ylabel('输出信噪比 SNR (dB)', 'FontSize', 12);
-ylim([min(record_snr)-2, max(record_snr)+2]);
+ylim([min(record_snr_avg)-2, max(record_snr_avg)+2]);
 xlabel('级联层数 (Number of Layers)', 'FontSize', 12);
 
 yyaxis right
-p2 = plot(1:max_test_layers, record_time_cum, '-rs', 'LineWidth', 2, 'MarkerFaceColor', 'r');
-ylabel('累计计算耗时 (Seconds)', 'FontSize', 12);
-ylim([0, max(record_time_cum)*1.2]);
+p2 = plot(1:max_test_layers, record_time_avg, '-rs', 'LineWidth', 2, 'MarkerFaceColor', 'r');
+ylabel('平均运行时间 (Seconds)', 'FontSize', 12);
+ylim([0, max(record_time_avg)*1.2]);
 
 % 美化图表
-title('级联SR系统：性能提升 vs 计算成本', 'FontSize', 14);
+title(sprintf('级联SR系统：性能提升 vs 计算成本（每层重复 %d 次取平均）', num_repeats), 'FontSize', 14);
 grid on;
 xticks(1:max_test_layers);
-legend([p1, p2], {'Output SNR', 'Total Computation Time'}, 'Location', 'northwest');
+legend([p1, p2], {'Average Output SNR', 'Average Runtime'}, 'Location', 'northwest');
 
 % 在图上标注具体数值
 for i = 1:max_test_layers
     yyaxis left
-    text(i, record_snr(i)+0.2, sprintf('%.1fdB', record_snr(i)), ...
+    text(i, record_snr_avg(i)+0.2, sprintf('%.1fdB', record_snr_avg(i)), ...
         'HorizontalAlignment', 'center', 'Color', 'b', 'FontSize', 10);
     
     yyaxis right
-    text(i, record_time_cum(i)-max(record_time_cum)*0.05, sprintf('%.1fs', record_time_cum(i)), ...
+    text(i, record_time_avg(i)-max(record_time_avg)*0.05, sprintf('%.1fs', record_time_avg(i)), ...
         'HorizontalAlignment', 'center', 'Color', 'r', 'FontSize', 10);
 end
 
@@ -139,10 +144,11 @@ results.input.f0 = f0;
 results.input.fs = fs;
 results.input.T  = T;
 results.input.D = D;
+results.input.num_repeats = num_repeats;
 results.input.clean_sig = clean_sig;
 results.input.noise_seq = noise_seq;
-results.output.record_snr = record_snr;
-results.output.record_time_cum = record_time_cum;
+results.output.record_snr_avg = record_snr_avg;
+results.output.record_time_avg = record_time_avg;
 
 %% 辅助函数 (Cost Function)
 function fitness = CostFunction_CBSR(params, sig_in, noise_in, fs, f0)

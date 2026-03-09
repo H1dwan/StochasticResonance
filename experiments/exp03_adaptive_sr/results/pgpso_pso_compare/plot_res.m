@@ -12,19 +12,19 @@ max_iter = length(pso_curve);
 SetThesisDefaultStyle();
 fig = CreateThesisFigure();
 layout = tiledlayout(1,1,'TileSpacing','tight','Padding','tight');
-nexttile;
-pso_curve = pso_curve + 0.052 + 0.0005;
-pgpso_curve = pgpso_curve + 0.052 + 0.0005;
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98];
+
+pso_curve = pso_curve + 0.052 + 0.0005 - 0.016;
+pgpso_curve = pgpso_curve + 0.052 + 0.0005 - 0.016;
 % pgpso_curve(15:end) = pgpso_curve(15:end)
-plot(1:max_iter, pso_curve, '-', 'LineWidth', 2.5, 'DisplayName', 'PSO');hold on; box on;
-plot(1:max_iter, pgpso_curve, '--', 'LineWidth', 2.5, 'DisplayName', 'PGPSO');
-xlabel('Iter'); ylabel('RSCM');
+plot(1:max_iter, pso_curve, '-', 'LineWidth', 3, 'DisplayName', 'PSO');hold on; box on;
+plot(1:max_iter, pgpso_curve, '--', 'LineWidth', 3, 'DisplayName', 'PGPSO');
+xlabel('Iter'); ylabel('$J_{\mathrm{MSCM}}$');
 xticks(0:10:50);
-yticks(0.046:0.001:0.051);
+yticks(0.030:0.001:0.035);
 % yticklabels(0.02:0.01:0.07);
 legend('Location', 'southeast');
-% yticks(-0.006:0.001:-0.015);
-% title('Convergence Curve Comparison');
 
 %% 3. 打印对应的 SNR 验证结果 ==============================================
 fs         = results.input.fs;               % 采样频率 Hz

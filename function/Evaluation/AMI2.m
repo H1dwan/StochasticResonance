@@ -47,7 +47,7 @@ valid_widths = pulse_widths(pulse_widths >= 3);
 %
 if isempty(valid_widths)
     tau_samples = round(trimean(pulse_widths, 10)); % 备选：如果全是毛刺，取平均
-    fprintf('警告：所有驻留时间均过短，可能为噪声主导，取均值估计驻留时间 (%d 点)。\n', tau_samples);
+    % fprintf('警告：所有驻留时间均过短，可能为噪声主导，取均值估计驻留时间 (%d 点)。\n', tau_samples);
 else
     tau_samples = round(trimmean(valid_widths, 10)); % 直接取均值作为稳健估计
 end
@@ -61,10 +61,10 @@ tau_mode_sec = tau_samples / fs;
 % SR 的特征是：在 T_signal/2 (即 tau_mode) 处有很强的相关性
 % 搜索范围：从 0.5 * tau_mode 到 1.5 * tau_mode
 % 如果 tau_samples 很小(噪声主导)，则计算一段常规范围
-if tau_samples < fs
+if tau_samples < fs/2
     % 驻留时间太短，可能是纯噪声，按常规计算一小段
     ami_score = 0; results = [];
-    fprintf('警告：驻留时间过短 (%d 点)，可能为噪声主导，计算常规 AMI 曲线。\n', tau_samples);
+    % fprintf('警告：驻留时间过短 (%d 点)，可能为噪声主导，计算常规 AMI 曲线。\n', tau_samples);
     return;
 else
     % 在主峰附近搜索最大互信息

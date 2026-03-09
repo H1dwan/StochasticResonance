@@ -72,7 +72,10 @@ fprintf('仿真完成。\n');
 %% 3. 结果可视化
 % -------------------------------------------------------------------------
 SetThesisDefaultStyle();
-fig1 = CreateThesisFigure(8, 6, 3);
+fig1 = CreateThesisFigure(8, 6, 2.5);
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98];
 % 绘制实际响应曲线
 plot(A_list, Out_Amp_list, '-x', 'LineWidth', 1.5, 'MarkerSize', 6); hold on;
 xlabel('$A_{in}$');
@@ -84,6 +87,9 @@ plot(0.2, Out_Amp_list(A_list==0.2), 'ko', 'MarkerSize', 8, 'DisplayName', '$A_{
 plot(1.2, Out_Amp_list(A_list==1.2), 'ko', 'MarkerSize', 8, 'DisplayName', '$A_{in}=1.2$');
 
 fig2 = CreateThesisFigure(4, 3);
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98];
 s1 = 0.2 * sin(2*pi*f0*t);
 x1 = RK4Solver2(drift, s1, noise_seq, fs);
 plot(t, x1, 'Color', [0.9020, 0.2941, 0.2078], 'LineWidth', 1.2, 'DisplayName', '$A_{in}=0.2$');
@@ -93,6 +99,9 @@ ylabel('$x(t)$');
 legend('Location', 'NorthEast');
 
 fig3 = CreateThesisFigure(4, 3);
+tiledlayout(1, 1,'Padding','tight','TileSpacing','tight');
+ax = nexttile;
+ax.Position = [0.01 0.01 0.98 0.98];
 s2 = 1.2 * sin(2*pi*f0*t);
 x2 = RK4Solver2(drift, s2, noise_seq, fs);
 plot(t, x2, 'Color', [0.0000, 0.6196, 0.4510], 'LineWidth', 1.2, 'DisplayName', '$A_{in}=1.2$');

@@ -14,10 +14,10 @@
 % =========================================================================
 
 clc; clear; close all;
-seed = 1;
+seed = 0;
 
 %% 1. 加载数据 ==============================================================
-data_filename = '209.mat';
+data_filename = '110.mat';
 S = load(data_filename);  % 加载到结构体
 
 % 查找变量名
@@ -32,22 +32,28 @@ end
 % 提取数据
 raw_sig = S.(var_names{de_idx(1)});
 rpm = S.(var_names{rpm_idx(1)});
-fs_raw = 12000;      % CWRU标准采样率 12kHz
+fs_raw = 48000;      % CWRU标准采样率 12kHz
 
 % 计算轴承故障频率
 [freqs, desc] = BearingHz(rpm);
-f_fault_real = freqs.BPFI;      % 内圈故障频率
+f_fault_real = freqs.BPFO;      % 内/外圈故障频率
+% f_fault_real = freqs.BPFI;      % 内/外圈故障频率
 
 %% 2. 信号预处理 ============================================================
 % 截取数据片段进行分析（避免计算量过大）
-N_sample = 8192;
+N_sample = 16384;
 N = length(raw_sig);
 t = (0:N-1)/fs_raw;
 sig_segment = raw_sig(1:N_sample);
 
 % 输入信号的频谱分析
 fprintf('Input snr: %.4fdb\n', SNRo2(sig_segment, fs_raw, f_fault_real));
-Plot_Time_Frequency2(sig_segment, fs_raw, 'FaultFreq', f_fault_real, 'FaultLabel', "BPFI");
+Plot_Time_Frequency2(sig_segment, fs_raw, 'FaultFreq', f_fault_real);
+
+% % 带通滤波，锁定共振带
+% bp_low  = 2000;   % Hz
+% bp_high = 4000;   % Hz
+% sig_bp = bandpass(sig_segment, [bp_low bp_high], fs_raw);
 
 % 包络提取，SR作为低通滤波器，直接处理高频载波效果差，需先提取故障包络
 sig_env = abs(hilbert(sig_segment));
@@ -61,10 +67,16 @@ sig_mean = mean(sig_ac);
 sig_std = std(sig_ac);
 sig_processed = (sig_ac - sig_mean) / sig_std;
 
+% P = sum((abs(fft(sig_ac))./N_sample).^2); % 求总功率，估计噪声方差
+% R_A = sqrt(P); % Amplitude Compression Ratio
+% sig_processed = sig_ac / R_A; % 幅值压缩，控制噪声强度
+
 % 2.4 频率尺度变换 (Frequency Rescaling)
 % 将真实采样频率映射到固定的5Hz
-R = fs_raw / 5;     % 尺度变换系数 R
+R = 9600;
+fs = fs_raw / R;    % 变换后的采样频率
 f_target_sr = f_fault_real / R;     % 变换后的目标频率
+% sig_processed = sig_processed + sqrt(2*0.1*fs)*randn(size(sig_processed)); % 添加少量高斯噪声
 
 % 更新数值积分步长 h
 % 原始步长 h0 = 1/fs. 变换后系统"感知"到的步长需放大 R 倍
@@ -73,20 +85,22 @@ h_sr = (1/fs_raw) * R;
 
 fprintf('frequency rescaling factor R: %.2f\n', R);
 fprintf('Original target frequency: %.3f Hz, Rescaled target frequency: %.3f Hz\n', f_fault_real, f_target_sr);
+fprintf('Original fs: %.2f Hz, Rescaled fs: %.2f Hz\n', fs_raw, fs);
 
 %% 3. 自适应 PSO 寻优 ==============================
 
 % PSO 参数设置
 dim = 2;              % 优化变量维度 [xm, dU]
 lb = [0.1, 0.1];      % 参数下界
-ub = [5.0, 5.0];      % 参数上界
+ub = [2.0, 2.0];      % 参数上界
 
 dim_hs = 3;           % HSUBSR 多一个 shape 参数
-lb_hs = [0.1, 0.1, 1.1];
-ub_hs = [5.0, 5.0, 100];
+lb_hs = [0.5, 0.1, 1.01];
+ub_hs = [2.0, 1.0, 1.99];
 
 SearchAgents_no = 20; % 种群规模
-Max_iter = 50;        % 迭代次数
+Max_iter = 30;        % 迭代次数 
+
 
 % 定义目标函数: 输入[a,b], 输出 -SNR (因为PSO默认求极小值)
 fobj_ubsr  = @(p) Fitness_UBSR_Fair(p, sig_processed, h_sr, f_target_sr);
@@ -162,6 +176,15 @@ for m = 1:numel(results)
             error('Unknown model name: %s', results(m).name);
     end
     fs_restore = (1 / h_sr) * R; % restore to original frequency scale
+    if strcmp(results(m).name, 'HSUBSR')
+        x_sr = x_sr - mean(x_sr);
+        x_sr = 1*smooth(x_sr, 5);
+    end
+    
+    if strcmp(results(m).name, 'UBSR')
+        x_sr = 1 * x_sr;
+    end
+    
     Plot_Time_Frequency(x_sr, fs_restore);
     snr_val = SNRo2(x_sr, fs_restore, f_fault_real);
     fprintf('Validated SNR: %.2f dB\n', snr_val);
@@ -290,7 +313,7 @@ function x = GetOutput_UBSR_Fair(p, s, h)
 [a, b] = MapParams_UBSR(p(1), p(2));
 drift = @(x) UBSR_Dynamics(x, a, b);
 x = RK4Solver(drift, s, h);
-x = x(round(0.1*end):end);
+x = x(round(0.1*end)+1:end);
 end
 
 % --- 2. PLBSR 映射与适应度 ---
@@ -312,7 +335,7 @@ function x = GetOutput_PLBSR_Fair(p, s, h)
 [U0, L0] = MapParams_PLBSR(p(1), p(2));
 drift = @(x) PLBSR_Dynamics(x, U0, L0);
 x = RK4Solver(drift, s, h);
-x = x(round(0.1*end):end);
+x = x(round(0.1*end)+1:end);
 end
 
 % --- 3. HSUBSR 映射与适应度 ---
@@ -330,7 +353,7 @@ function x = GetOutput_HSUBSR_Fair(p, s, h)
 [a, b, k1, k2] = CalibrateHSUBSR(p(1), p(2), p(3));
 drift = @(x) HSUBSR_Dynamics(x, a, b, k1, k2);
 x = RK4Solver(drift, s, h);
-x = x(round(0.1*end):end);
+x = x(round(0.1*end)+1:end);
 end
 
 function Plot_Time_Frequency(x, fs, options)
@@ -372,12 +395,38 @@ nexttile
 plot(t, x, 'LineWidth', options.LineWidth);
 xlabel('Time[s]')
 ylabel('Amplitude')
+% xlim([0 0.3])
 
 nexttile;
 plot(f, P1, 'LineWidth', options.LineWidth);
 xlim([0 1000])
 xlabel('Frequency[Hz]')
 ylabel('Amplitude')
+
+% Mark the highest spectral peak (exclude DC)
+ax = gca;
+if numel(P1) > 1
+    xlimv = ax.XLim;
+    ylimv = ax.YLim;
+    inRange = f >= xlimv(1) & f <= xlimv(2);
+    if any(inRange)
+        [peakVal, relIdx] = max(P1(inRange));
+        idxs = find(inRange);
+        peakIdx = idxs(relIdx);
+        peakFreq = f(peakIdx);
+        axpos = ax.Position; % normalized in figure
+        xnorm = axpos(1) + (peakFreq - xlimv(1)) / diff(xlimv) * axpos(3);
+        ynorm = axpos(2) + (peakVal - ylimv(1)) / diff(ylimv) * axpos(4) + 0.01;
+        % Clamp to keep annotation within figure bounds
+        x1 = min(max(xnorm, 0.02), 0.98);
+        y1 = min(max(ynorm, 0.02), 0.98);
+        x0 = min(max(x1 + 0.06, 0.02), 0.98);
+        y0 = min(max(y1 - 0.06, 0.02), 0.98);
+        annotation('textarrow', [x0 x1], [y0 y1], ...
+            'String', sprintf('$f=%.2f\\,\\mathrm{Hz}$', peakFreq), ...
+            'FontSize', 12, 'LineWidth', 1, 'Interpreter', 'latex');
+    end
+end
 
 end
 
@@ -398,7 +447,7 @@ arguments
     fs  double
     options.LineWidth (1,1) {mustBeNumeric} = 1
     options.FaultFreq (1,1) double = NaN
-    options.FaultLabel (1,1) string = "BPFI"
+    options.FaultLabel (1,1) string = '$f_{BPFI}=$'
 end
 
 N = length(x);
@@ -446,7 +495,7 @@ if ~isnan(options.FaultFreq)
     ynorm = axpos(2) + (yval - ax.YLim(1)) / diff(ax.YLim) * axpos(4) + 0.01;
     annotation('textarrow', [xnorm + 0.06 xnorm], [ynorm + 0.06 ynorm], ...
         'String', sprintf('%s %.2f Hz', options.FaultLabel, ff), ...
-        'FontSize', 10, 'LineWidth', 1);
+        'FontSize', 12, 'LineWidth', 1, 'Interpreter', 'latex');
 end
 
 end
